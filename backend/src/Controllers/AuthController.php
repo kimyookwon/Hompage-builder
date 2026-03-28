@@ -53,6 +53,46 @@ class AuthController {
 
     $token = JwtHandler::generate($userId, 'user');
 
+    // 이메일 인증 토큰 생성 및 발송
+    $verifyToken = bin2hex(random_bytes(32));
+    $pdo->prepare('UPDATE users SET email_verify_token = ? WHERE id = ?')
+        ->execute([$verifyToken, $userId]);
+
+    try {
+      $siteUrl    = rtrim($_ENV['SITE_URL'] ?? 'http://localhost:3000', '/');
+      $verifyLink = "{$siteUrl}/verify-email?token={$verifyToken}";
+
+      $html = <<<HTML
+<!DOCTYPE html>
+<html lang="ko">
+<head><meta charset="UTF-8"></head>
+<body style="font-family:sans-serif;color:#222;max-width:540px;margin:0 auto;padding:24px;">
+  <h2 style="font-size:18px;margin-bottom:8px;">이메일 인증</h2>
+  <p style="color:#555;font-size:14px;margin-bottom:16px;">
+    안녕하세요, <strong>{$name}</strong>님.<br>
+    아래 버튼을 클릭하여 이메일 인증을 완료해주세요.
+  </p>
+  <p style="margin-top:20px;">
+    <a href="{$verifyLink}"
+       style="background:#3b82f6;color:#fff;padding:10px 22px;border-radius:6px;text-decoration:none;font-size:14px;">
+      이메일 인증하기
+    </a>
+  </p>
+  <p style="margin-top:16px;font-size:12px;color:#999;">
+    링크가 작동하지 않으면 아래 URL을 브라우저에 붙여넣으세요:<br>
+    <a href="{$verifyLink}" style="color:#3b82f6;">{$verifyLink}</a>
+  </p>
+  <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;">
+  <p style="font-size:12px;color:#999;">이 메일은 자동 발송된 알림입니다.</p>
+</body>
+</html>
+HTML;
+
+      \App\Services\EmailService::send($email, $name, '이메일 인증 안내', $html);
+    } catch (\Throwable) {
+      // 이메일 발송 실패해도 회원가입은 성공 처리
+    }
+
     $stmt = $pdo->prepare('SELECT id, email, name, avatar_url, role, oauth_provider, status, points, level, created_at, updated_at FROM users WHERE id = ?');
     $stmt->execute([$userId]);
     $newUser = $stmt->fetch();
@@ -61,6 +101,45 @@ class AuthController {
       'token' => $token,
       'user' => $newUser,
     ], 201);
+  }
+
+  // GET /api/auth/verify-email?token= -- 이메일 인증 처리
+  public function verifyEmail(): void {
+    try {
+      $token = trim($_GET['token'] ?? '');
+
+      if (empty($token)) {
+        ResponseHelper::error('인증 토큰이 필요합니다.', 400);
+      }
+
+      $pdo = Database::getInstance();
+
+      // 토큰으로 사용자 조회
+      $stmt = $pdo->prepare(
+        'SELECT id, email_verified_at FROM users WHERE email_verify_token = ?'
+      );
+      $stmt->execute([$token]);
+      $user = $stmt->fetch();
+
+      if (!$user) {
+        ResponseHelper::error('유효하지 않은 인증 토큰입니다.', 400);
+      }
+
+      // 이미 인증된 경우 -> 멱등 처리
+      if ($user['email_verified_at'] !== null) {
+        ResponseHelper::success(['message' => '이메일 인증이 완료되었습니다.']);
+        return;
+      }
+
+      // 인증 완료 처리
+      $pdo->prepare(
+        'UPDATE users SET email_verified_at = NOW(), email_verify_token = NULL WHERE id = ?'
+      )->execute([(int) $user['id']]);
+
+      ResponseHelper::success(['message' => '이메일 인증이 완료되었습니다.']);
+    } catch (\Throwable $e) {
+      ResponseHelper::error('이메일 인증 처리에 실패했습니다.', 500);
+    }
   }
 
   // POST /api/auth/login — 자체 로그인

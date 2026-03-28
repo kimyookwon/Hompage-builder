@@ -107,6 +107,9 @@ $router->get('/api/health', function (): void {
   ]);
 });
 
+// ─── OG 메타태그 ────────────────────────────────────────
+$router->get('/api/og', [\App\Controllers\OgController::class, 'index']);
+
 // ─── 검색 ───────────────────────────────────────────────
 $router->get('/api/search/suggest', [\App\Controllers\SearchController::class, 'suggest']);
 $router->get('/api/search', [\App\Controllers\SearchController::class, 'index']);
@@ -116,6 +119,7 @@ $router->post('/api/auth/register', [\App\Controllers\AuthController::class, 're
 $router->post('/api/auth/login', [\App\Controllers\AuthController::class, 'login']);
 $router->post('/api/auth/logout', [\App\Controllers\AuthController::class, 'logout']);
 $router->get('/api/auth/me', [\App\Controllers\AuthController::class, 'me']);
+$router->get('/api/auth/verify-email', [\App\Controllers\AuthController::class, 'verifyEmail']);
 $router->post('/api/auth/forgot-password', [\App\Controllers\PasswordResetController::class, 'requestReset']);
 $router->post('/api/auth/reset-password', [\App\Controllers\PasswordResetController::class, 'resetPassword']);
 $router->get('/api/auth/reset-password/verify', [\App\Controllers\PasswordResetController::class, 'verifyToken']);
@@ -230,6 +234,9 @@ $router->patch('/api/admin/reports/{id}', [\App\Controllers\ReportController::cl
 // ─── 관리자 일괄 작업 ────────────────────────────────────
 $router->post('/api/admin/posts/bulk', [\App\Controllers\BulkController::class, 'deletePosts']);
 $router->post('/api/admin/users/bulk', [\App\Controllers\BulkController::class, 'updateUsersStatus']);
+
+// ─── 관리자 일괄 이메일 ──────────────────────────────────
+$router->post('/api/admin/bulk-mail', [\App\Controllers\BulkMailController::class, 'send']);
 
 // ─── 첨부파일 통계 (관리자) ──────────────────────────────
 $router->get('/api/admin/attachments', [\App\Controllers\AttachmentController::class, 'adminStats']);

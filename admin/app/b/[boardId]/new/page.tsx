@@ -1,5 +1,7 @@
 'use client';
 
+// @TASK 게시글 작성 — 임시저장 훅 연동
+
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -7,11 +9,23 @@ import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import { MarkdownEditor } from '@/components/common/MarkdownEditor';
 import { TagInput } from '@/components/common/TagInput';
+import { useDraftSave } from '@/hooks/useDraftSave';
 import { Board, Post } from '@/types';
 
 interface MediaAsset {
   id: number;
   file_url: string;
+}
+
+/** 저장 시각을 "방금 전 / N분 전 / N시간 전" 형태로 반환 */
+function formatRelativeTime(date: Date): string {
+  const diffMs = Date.now() - date.getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return '방금 전';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}분 전`;
+  const diffHour = Math.floor(diffMin / 60);
+  return `${diffHour}시간 전`;
 }
 
 export default function NewPostPage() {
@@ -30,10 +44,14 @@ export default function NewPostPage() {
   const [errors, setErrors] = useState<{ title?: string; content?: string }>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 임시저장 상태
-  const [hasDraft, setHasDraft] = useState(false);
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const DRAFT_KEY = `post_draft_${boardId}`;
+  // 임시저장 배너 표시 여부 (초기 로드 시 draft 존재하면 표시)
+  const [showDraftBanner, setShowDraftBanner] = useState(false);
+
+  // 임시저장 훅 — 30초마다 자동저장 + 페이지 이탈 시 저장
+  const { hasDraft, loadDraft, clearDraft, lastSaved } = useDraftSave(
+    boardId,
+    { title, content },
+  );
 
   // 비로그인 시 로그인 페이지로
   useEffect(() => {
@@ -55,30 +73,12 @@ export default function NewPostPage() {
     });
   }, [hasHydrated, user, boardId, router]);
 
-  // 초기 로드 시 임시저장 복원
+  // 초기 로드 시 임시저장 존재 여부 배너 표시
   useEffect(() => {
-    const saved = localStorage.getItem(DRAFT_KEY);
-    if (saved) {
-      try {
-        const draft = JSON.parse(saved) as { title?: string; content?: string };
-        if (draft.title) setTitle(draft.title);
-        if (draft.content) setContent(draft.content);
-        setHasDraft(true);
-      } catch {
-        // 파싱 실패 시 무시
-      }
-    }
-  }, [DRAFT_KEY]);
-
-  // title/content 변경 시 1초 디바운스 자동저장
-  useEffect(() => {
-    if (!title && !content) return;
-    const timer = setTimeout(() => {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify({ title, content, savedAt: Date.now() }));
-      setLastSaved(new Date());
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [title, content, DRAFT_KEY]);
+    if (hasDraft) setShowDraftBanner(true);
+  // hasDraft를 의존성에 포함하되, 마운트 시 1회만 평가 (빈 배열로도 동작하나 린트 경고 방지)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const validate = () => {
     const e: { title?: string; content?: string } = {};
@@ -114,7 +114,7 @@ export default function NewPostPage() {
         tags,
       });
       // 제출 성공 시 임시저장 삭제
-      localStorage.removeItem(DRAFT_KEY);
+      clearDraft();
       router.push(`/b/${boardId}/${res.data.id}`);
     } catch {
       alert('게시글 작성에 실패했습니다.');
@@ -144,22 +144,36 @@ export default function NewPostPage() {
 
       <h1 className="text-xl font-bold text-gray-900 mb-6">새 게시글 작성</h1>
 
-      {/* 임시저장 복원 배너 */}
-      {hasDraft && (
+      {/* 임시저장 복원 배너 — 페이지 최초 진입 시 draft가 있을 때만 표시 */}
+      {showDraftBanner && (
         <div className="flex items-center justify-between text-sm bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-2 mb-4">
-          <span className="text-yellow-700">임시저장된 내용이 있습니다.</span>
-          <button
-            type="button"
-            onClick={() => {
-              localStorage.removeItem(DRAFT_KEY);
-              setTitle('');
-              setContent('');
-              setHasDraft(false);
-            }}
-            className="text-xs text-red-500 hover:underline"
-          >
-            초기화
-          </button>
+          <span className="text-yellow-700">임시저장된 글이 있습니다.</span>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                const draft = loadDraft();
+                if (draft) {
+                  setTitle(draft.title);
+                  setContent(draft.content);
+                }
+                setShowDraftBanner(false);
+              }}
+              className="text-xs font-medium text-blue-600 hover:underline"
+            >
+              불러오기
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                clearDraft();
+                setShowDraftBanner(false);
+              }}
+              className="text-xs text-gray-400 hover:underline"
+            >
+              무시
+            </button>
+          </div>
         </div>
       )}
 
@@ -240,10 +254,10 @@ export default function NewPostPage() {
           />
         </div>
 
-        {/* 자동저장 상태 표시 */}
+        {/* 우측 하단 임시저장 상태 표시 */}
         {lastSaved && (
           <p className="text-xs text-gray-400 text-right">
-            {`${lastSaved.toLocaleTimeString('ko-KR')} 자동저장됨`}
+            임시저장: {formatRelativeTime(lastSaved)}
           </p>
         )}
 
