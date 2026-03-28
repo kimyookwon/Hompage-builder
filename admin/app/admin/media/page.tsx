@@ -14,6 +14,7 @@ interface MediaAsset {
   id: number;
   filename: string;
   file_url: string;
+  thumb_url: string | null;
   mime_type: string;
   file_size: number;
   created_at: string;
@@ -123,7 +124,7 @@ export default function MediaPage() {
         >
           <Upload size={20} className="text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
-            클릭하거나 파일을 드래그하여 업로드 <span className="opacity-60">(JPEG · PNG · WebP · 최대 5MB, 다중 선택 가능)</span>
+            클릭하거나 파일을 드래그하여 업로드 <span className="opacity-60">(JPEG · PNG · WebP · 최대 10MB, 자동 WebP 변환 + 썸네일 생성)</span>
           </p>
         </div>
 
@@ -151,7 +152,7 @@ export default function MediaPage() {
                 className="group relative aspect-square rounded-lg overflow-hidden border bg-muted/20"
               >
                 <Image
-                  src={asset.file_url}
+                  src={asset.thumb_url ?? asset.file_url}
                   alt={asset.filename}
                   fill
                   className="object-cover"

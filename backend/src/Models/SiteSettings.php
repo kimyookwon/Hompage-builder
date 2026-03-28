@@ -18,7 +18,7 @@ class SiteSettings {
     $fields = [];
     $values = [];
 
-    foreach (['site_name', 'logo_url', 'primary_color', 'secondary_color', 'background_color', 'gtm_code', 'home_slug', 'notice_enabled', 'notice_text', 'notice_color'] as $field) {
+    foreach (['site_name', 'logo_url', 'primary_color', 'secondary_color', 'background_color', 'gtm_code', 'home_slug', 'notice_enabled', 'notice_text', 'notice_color', 'site_url', 'robots_txt'] as $field) {
       if (array_key_exists($field, $data)) {
         $fields[] = "{$field} = ?";
         $values[] = $data[$field];

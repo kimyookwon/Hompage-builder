@@ -25,6 +25,8 @@ export default function SettingsPage() {
   const [noticeEnabled, setNoticeEnabled] = useState(false);
   const [noticeText, setNoticeText] = useState('');
   const [noticeColor, setNoticeColor] = useState('#1d4ed8');
+  const [siteUrl, setSiteUrl] = useState('');
+  const [robotsTxt, setRobotsTxt] = useState('');
   const [publishedPages, setPublishedPages] = useState<Page[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const addToast = useAppStore((s) => s.addToast);
@@ -45,6 +47,8 @@ export default function SettingsPage() {
       setNoticeEnabled(s.noticeEnabled ?? false);
       setNoticeText(s.noticeText ?? '');
       setNoticeColor(s.noticeColor ?? '#1d4ed8');
+      setSiteUrl(s.siteUrl ?? '');
+      setRobotsTxt(s.robotsTxt ?? '');
       setPublishedPages(pagesRes.data.items.filter((p) => p.isPublished));
     }).catch(() => addToast('설정을 불러오지 못했습니다.', 'destructive'));
   }, [addToast]);
@@ -67,6 +71,8 @@ export default function SettingsPage() {
         notice_enabled: noticeEnabled ? 1 : 0,
         notice_text: noticeText || null,
         notice_color: noticeColor,
+        site_url: siteUrl || null,
+        robots_txt: robotsTxt || null,
       });
       setSettings(res.data);
       addToast('설정이 저장되었습니다.');
@@ -215,6 +221,43 @@ export default function SettingsPage() {
                 </div>
               )}
             </div>
+          </div>
+        </section>
+
+        {/* SEO */}
+        <section className="rounded-lg border p-6 space-y-4">
+          <div>
+            <h2 className="font-semibold">SEO</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              sitemap.xml과 robots.txt를 자동 생성합니다.
+            </p>
+          </div>
+          <div className="space-y-1">
+            <Label>사이트 URL</Label>
+            <Input
+              value={siteUrl}
+              onChange={(e) => setSiteUrl(e.target.value)}
+              placeholder="https://example.com"
+              type="url"
+            />
+            <p className="text-xs text-muted-foreground">
+              <code className="bg-muted px-1 py-0.5 rounded text-xs">/sitemap.xml</code>에 포함될 기본 URL입니다.
+              미입력 시 요청 호스트를 사용합니다.
+            </p>
+          </div>
+          <div className="space-y-1">
+            <Label>robots.txt 커스텀 내용</Label>
+            <textarea
+              value={robotsTxt}
+              onChange={(e) => setRobotsTxt(e.target.value)}
+              placeholder={`User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: https://example.com/sitemap.xml`}
+              rows={6}
+              className="w-full border rounded-md px-3 py-2 text-sm bg-background font-mono resize-y outline-none focus:ring-2 focus:ring-ring"
+            />
+            <p className="text-xs text-muted-foreground">
+              비워두면 기본값이 사용됩니다.
+              <a href="/robots.txt" target="_blank" className="ml-2 underline text-primary">미리보기</a>
+            </p>
           </div>
         </section>
 

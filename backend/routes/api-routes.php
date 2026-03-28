@@ -121,3 +121,7 @@ $router->post('/api/admin/import', [\App\Controllers\SiteExportController::class
 // ─── 사이트 설정 ─────────────────────────────────────────
 $router->get('/api/site-settings', [\App\Controllers\SiteSettingsController::class, 'show']);
 $router->patch('/api/site-settings', [\App\Controllers\SiteSettingsController::class, 'update']);
+
+// ─── SEO (sitemap / robots) ──────────────────────────────
+$router->get('/sitemap.xml', [\App\Controllers\SeoController::class, 'sitemap']);
+$router->get('/robots.txt', [\App\Controllers\SeoController::class, 'robots']);

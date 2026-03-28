@@ -168,5 +168,7 @@ export interface SiteSettings {
   noticeEnabled: boolean;
   noticeText: string | null;
   noticeColor: string;
+  siteUrl: string | null;
+  robotsTxt: string | null;
   updatedAt: string;
 }
