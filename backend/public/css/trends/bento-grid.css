@@ -1,0 +1,102 @@
+/* 2026 Bento Grid 트렌드 CSS */
+
+.bento-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+  padding: 1.5rem;
+}
+
+.bento-card {
+  background: var(--color-surface, #ffffff);
+  border-radius: 1.5rem;
+  padding: 1.75rem;
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.08));
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  overflow: hidden;
+  position: relative;
+}
+
+.bento-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+}
+
+/* 카드 크기 변형 */
+.bento-card--wide {
+  grid-column: span 2;
+}
+
+.bento-card--tall {
+  grid-row: span 2;
+}
+
+.bento-card--featured {
+  grid-column: span 2;
+  grid-row: span 2;
+}
+
+/* 카드 색상 테마 */
+.bento-card--primary {
+  background: var(--primary-color, #3b82f6);
+  color: #ffffff;
+}
+
+.bento-card--dark {
+  background: #1a1a2e;
+  color: #ffffff;
+}
+
+.bento-card--accent {
+  background: linear-gradient(135deg, var(--primary-color, #3b82f6), var(--secondary-color, #8b5cf6));
+  color: #ffffff;
+}
+
+.bento-card__title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.3;
+  margin-bottom: 0.75rem;
+}
+
+.bento-card__body {
+  font-size: 0.9rem;
+  line-height: 1.6;
+  opacity: 0.85;
+}
+
+.bento-card__icon {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+  display: block;
+}
+
+/* 배경 장식 */
+.bento-card::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -20%;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  pointer-events: none;
+}
+
+@media (max-width: 768px) {
+  .bento-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .bento-card--wide,
+  .bento-card--featured {
+    grid-column: span 1;
+  }
+
+  .bento-card--tall,
+  .bento-card--featured {
+    grid-row: span 1;
+  }
+}

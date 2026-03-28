@@ -1,0 +1,18 @@
+{
+  "cookies": [],
+  "origins": [
+    {
+      "origin": "http://localhost:3000",
+      "localStorage": [
+        {
+          "name": "auth_token",
+          "value": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vbG9jYWxob3N0OjgwMDAiLCJpYXQiOjE3NzQ2Nzc3NTYsImV4cCI6MTc3NDc2NDE1Niwic3ViIjoxLCJyb2xlIjoiYWRtaW4ifQ.Nl65OSUFTY0HOHch5bd81dBi9NbhjmrzouLrGkxAcYE"
+        },
+        {
+          "name": "auth-storage",
+          "value": "{\"state\":{\"user\":{\"id\":1,\"email\":\"admin@homepage.local\",\"name\":\"Admin\",\"avatarUrl\":null,\"role\":\"admin\",\"oauthProvider\":null,\"status\":\"active\",\"createdAt\":\"2026-03-27 21:52:13\",\"updatedAt\":\"2026-03-28 05:44:24\"},\"token\":\"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vbG9jYWxob3N0OjgwMDAiLCJpYXQiOjE3NzQ2Nzc3NTYsImV4cCI6MTc3NDc2NDE1Niwic3ViIjoxLCJyb2xlIjoiYWRtaW4ifQ.Nl65OSUFTY0HOHch5bd81dBi9NbhjmrzouLrGkxAcYE\",\"isAuthenticated\":true},\"version\":0}"
+        }
+      ]
+    }
+  ]
+}

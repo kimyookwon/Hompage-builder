@@ -1,0 +1,306 @@
+version: "2.0"
+screen_id: S09
+name: 공개 게시판 페이지
+generated: "2026-03-27"
+
+metadata:
+  route: /boards/{board_id}
+  type: public
+  layout: full-width
+  auth_required: false
+  description: 게시글 목록, 검색, 상세보기 및 댓글
+
+data_requirements:
+  boards:
+    resource: boards
+    filter: { id: "{board_id}" }
+    fields: [id, name, board_type, read_permission, write_permission]
+  posts:
+    resource: posts
+    filter: { board_id: "{board_id}" }
+    pagination:
+      per_page: 15
+      default_page: 1
+    order_by: created_at desc
+    join: [users]
+    fields: [id, title, author:users.name, user_id, created_at, comment_count]
+  comments:
+    resource: comments
+    filter: { post_id: "{post_id}" } (when viewing post detail)
+    order_by: created_at asc
+    join: [users]
+    fields: [id, content, author:users.name, user_id, created_at]
+  current_user:
+    resource: users
+    optional: true
+    fields: [id, email, role, status]
+
+components:
+  - name: NavHeader
+    type: header
+    description: 상단 네비게이션
+    reuse: S01.NavHeader
+
+  - name: BoardHeader
+    type: section
+    description: 게시판 헤더
+    content:
+      - board_name: boards.name
+      - board_type_badge: BoardTypeBadge(board_type)
+      - post_count: "{{total_posts}}개 게시글"
+      - description: boards 설명 (선택사항)
+
+  - name: PermissionCheck
+    type: utility
+    description: 권한 검증 로직
+    logic:
+      - read_access:
+          public: true
+          user: current_user is logged in
+          admin_only: current_user.role == admin
+      - write_access:
+          user: current_user is logged in
+          admin_only: current_user.role == admin
+
+  - name: SearchSort
+    type: filter_bar
+    description: 검색 및 정렬
+    components:
+      - search_input:
+          placeholder: "게시글 제목으로 검색"
+          search_fields: [posts.title]
+          debounce: 300ms
+      - sort_by:
+          type: dropdown
+          options:
+            - "최신순": created_at desc
+            - "오래된순": created_at asc
+            - "인기순": comment_count desc
+          default: "최신순"
+
+  - name: WriteButton
+    type: button
+    description: 게시글 작성 버튼
+    label: "+ 게시글 작성"
+    visibility: based on write_permission
+      - hidden: read_permission > current_user level
+      - visible: current_user meets write_permission
+    on_click:
+      - if logged in: show WritePostModal
+      - if not logged in: navigate to /login with redirect_to
+
+  - name: PostListTable
+    type: table
+    description: 게시글 목록 테이블
+    columns:
+      - title: { label: "제목", width: "50%" }
+      - author: { label: "작성자", width: "15%" }
+      - created_at: { label: "작성일", width: "15%", format: "yyyy-MM-dd" }
+      - comment_count: { label: "댓글", width: "10%", align: "center" }
+    row_action: click → open PostDetailModal
+    row_click_icon: "→" (오른쪽 화살표)
+
+  - name: PostDetailModal
+    type: modal
+    description: 게시글 상세보기 모달
+    size: large
+    components:
+      - post_header:
+          - title: posts.title (큼, 굵음)
+          - author: posts.author (작은 텍스트)
+          - created_at: posts.created_at (작은 텍스트)
+      - post_content:
+          - content: posts.content (렌더링)
+      - comments_section:
+          - comment_count: posts.comment_count
+          - CommentList: list of comments
+          - CommentForm: if write_permission allows
+      - actions:
+          - edit_button: visible only if current_user.id == post.user_id
+          - delete_button: visible only if current_user.id == post.user_id or admin
+
+  - name: CommentList
+    type: list
+    description: 댓글 목록
+    items:
+      - comment_item:
+          - author: comments.user_id → users.name
+          - content: comments.content
+          - created_at: comments.created_at
+          - delete_button: visible if current_user.id == comment.user_id or admin
+    order: created_at asc
+    pagination: 없음 (모두 표시)
+
+  - name: CommentForm
+    type: form
+    description: 댓글 작성 폼
+    visibility:
+      - hidden: write_permission > current_user level or not logged in
+      - visible: current_user meets write_permission
+    fields:
+      - content:
+          type: textarea
+          validation: required, max 1000
+          placeholder: "댓글을 입력하세요"
+    actions:
+      - submit_button: "등록"
+      - cancel_button: "취소"
+    on_submit: POST /api/posts/{post_id}/comments
+
+  - name: WritePostModal
+    type: modal
+    description: 게시글 작성 모달
+    form_fields:
+      - title:
+          type: text
+          validation: required, max 200
+          placeholder: "제목"
+      - content:
+          type: rich_editor
+          validation: required, max 5000
+          placeholder: "내용을 입력하세요"
+    actions:
+      - cancel_button
+      - submit_button: "작성"
+
+  - name: ConfirmDeleteModal
+    type: modal
+    reuse: S08.ConfirmDeleteModal (for posts/comments)
+
+  - name: Pagination
+    type: pagination
+    reuse: S04.Pagination
+
+  - name: Footer
+    type: footer
+    reuse: S01.Footer
+
+  - name: Toast
+    type: notification
+    display: bottom-right
+
+events:
+  viewBoard:
+    trigger: page load
+    action: fetch boards info, check read_permission
+    error_action: show permission denied message if no access
+
+  searchPosts:
+    trigger: search input change
+    action: filter posts by title
+    debounce: 300ms
+
+  sortPosts:
+    trigger: sort_by dropdown change
+    action: re-fetch posts with new sort_order
+
+  writePost:
+    trigger: "+ 게시글 작성" 버튼 클릭
+    action:
+      - check write_permission
+      - if permission denied: show error toast
+      - if logged out: navigate to /login
+      - else: show WritePostModal
+
+  submitWritePost:
+    trigger: WritePostModal submit
+    action: POST /api/boards/{board_id}/posts
+    payload: { title, content }
+    success_action: close modal, refresh posts list, show success toast
+    error_action: show error in modal
+
+  viewPost:
+    trigger: post list item click
+    action: open PostDetailModal with post_id
+    data_load: fetch post detail, comments
+
+  editPost:
+    trigger: edit button in modal
+    action: show edit form modal (same as WritePostModal but with current data)
+
+  deletePost:
+    trigger: delete button in modal
+    action: show ConfirmDeleteModal
+    on_confirm: DELETE /api/posts/{id}, close modal, refresh list
+
+  submitComment:
+    trigger: CommentForm submit
+    action:
+      - check write_permission
+      - if permission denied: show error toast
+      - else: POST /api/posts/{post_id}/comments
+    payload: { content }
+    success_action: add comment to list, clear form, show success toast
+    error_action: show error toast
+
+  deleteComment:
+    trigger: delete button on comment
+    action: show ConfirmDeleteModal
+    on_confirm: DELETE /api/comments/{id}, remove from list
+
+  changePage:
+    trigger: pagination click
+    action: fetch posts for page number
+
+tests:
+  - name: 공개 게시판 접속
+    given: 로그인하지 않은 사용자가 /boards/{board_id} 접속
+    when: 게시판 read_permission이 public
+    then: 게시글 목록 표시, 게시글 보기 가능
+
+  - name: 권한 제한 - 회원전용 읽기
+    given: read_permission이 user인 게시판
+    when: 로그인하지 않은 사용자 접속
+    then: 권한 없음 메시지 표시
+
+  - name: 게시글 작성 권한 검증
+    given: 로그인하지 않은 사용자
+    when: "+ 게시글 작성" 버튼 클릭
+    then: /login으로 리다이렉트
+
+  - name: 게시글 검색
+    given: search input 입력
+    when: 300ms 후 검색 실행
+    then: 제목으로 게시글 필터링
+
+  - name: 게시글 정렬 변경
+    given: sort_by "인기순" 선택
+    when: 선택 완료
+    then: comment_count 기준으로 정렬
+
+  - name: 게시글 상세보기
+    given: 게시글 목록에서 제목 클릭
+    when: PostDetailModal 표시
+    then: 게시글 내용과 댓글 표시
+
+  - name: 댓글 작성
+    given: 로그인 사용자, 권한 있음
+    when: CommentForm에 댓글 입력 후 등록 클릭
+    then: 댓글 저장, 목록에 추가, 성공 토스트
+
+  - name: 댓글 작성 - 권한 없음
+    given: admin_only write_permission 게시판, 일반 사용자
+    when: 댓글 작성 시도
+    then: 에러 "권한이 없습니다" 표시
+
+  - name: 게시글 삭제 - 작성자만 가능
+    given: 현재 사용자가 게시글 작성자
+    when: delete 버튼 클릭
+    then: ConfirmDeleteModal 표시
+
+  - name: 게시글 삭제 - 작성자 아님
+    given: 다른 사용자의 게시글
+    when: 상세보기 모달
+    then: delete 버튼 표시 안 함
+
+  - name: 댓글 삭제 - 작성자/관리자만 가능
+    given: 댓글 작성자 또는 admin
+    when: 댓글 delete 버튼 클릭
+    then: 삭제 실행
+
+performance:
+  board_load_time: 1.5s
+  posts_list_load_time: 1.5s
+  modal_open_time: 300ms
+  comment_submission_time: 500ms
+  search_debounce: 300ms

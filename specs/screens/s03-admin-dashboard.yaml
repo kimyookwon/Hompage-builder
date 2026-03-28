@@ -1,0 +1,139 @@
+version: "2.0"
+screen_id: S03
+name: 관리자 대시보드
+generated: "2026-03-27"
+
+metadata:
+  route: /admin
+  type: admin
+  layout: sidebar-main
+  auth_required: true
+  role_required: admin
+  description: 통계 및 최신 활동 요약
+
+data_requirements:
+  stats:
+    description: 대시보드 통계
+    computed:
+      - post_count: "SELECT COUNT(*) FROM posts"
+      - user_count: "SELECT COUNT(*) FROM users WHERE status='active'"
+      - blocked_count: "SELECT COUNT(*) FROM users WHERE status='blocked'"
+      - comment_count: "SELECT COUNT(*) FROM comments"
+  recent_posts:
+    resource: posts
+    limit: 10
+    order_by: created_at desc
+    join: [users, boards]
+    fields: [id, title, author:users.name, board_name:boards.name, created_at, comment_count]
+
+components:
+  - name: AdminNav
+    type: sidebar
+    description: 관리자 사이드바 메뉴
+    menu_items:
+      - label: "대시보드"
+        icon: "dashboard"
+        route: /admin
+      - label: "페이지 관리"
+        icon: "file"
+        route: /admin/pages
+      - label: "회원 관리"
+        icon: "users"
+        route: /admin/members
+      - label: "게시판 관리"
+        icon: "message"
+        route: /admin/boards
+      - label: "사이트 설정"
+        icon: "settings"
+        route: /admin/settings
+
+  - name: StatsCards
+    type: card_group
+    description: 주요 통계 카드 (4개)
+    cards:
+      - card_1:
+          title: "전체 게시글"
+          value: stats.post_count
+          icon: "file-text"
+          color: blue
+      - card_2:
+          title: "활성 회원"
+          value: stats.user_count
+          icon: "users"
+          color: green
+      - card_3:
+          title: "차단된 회원"
+          value: stats.blocked_count
+          icon: "alert-circle"
+          color: red
+      - card_4:
+          title: "전체 댓글"
+          value: stats.comment_count
+          icon: "message-circle"
+          color: purple
+
+  - name: RecentPostsTable
+    type: table
+    description: 최신 게시글 10개 테이블
+    columns:
+      - title: { label: "제목", width: "40%" }
+      - board_name: { label: "게시판", width: "15%" }
+      - author: { label: "작성자", width: "15%" }
+      - created_at: { label: "작성일", width: "15%", format: "yyyy-MM-dd" }
+      - comment_count: { label: "댓글", width: "15%", align: "center" }
+    row_action: click → viewPost modal
+
+  - name: QuickLinks
+    type: button_group
+    description: 빠른 링크
+    buttons:
+      - new_page: { label: "새 페이지", icon: "plus", action: navigateTo /admin/pages }
+      - manage_members: { label: "회원 관리", icon: "users", action: navigateTo /admin/members }
+      - board_settings: { label: "게시판 설정", icon: "message", action: navigateTo /admin/boards }
+      - site_settings: { label: "사이트 설정", icon: "settings", action: navigateTo /admin/settings }
+
+events:
+  navigateTo:
+    trigger: menu item or button click
+    action: navigate to route
+    params: [route]
+
+  viewPost:
+    trigger: recent posts table row click
+    action: open post detail modal
+    params: [post_id]
+
+  refreshStats:
+    trigger: page load or manual refresh
+    action: fetch latest stats
+
+tests:
+  - name: 대시보드 로드
+    given: 관리자가 /admin 접속
+    when: 페이지 로드
+    then: 4개 통계 카드 표시
+
+  - name: 통계 계산 정확성
+    given: 데이터베이스에 여러 게시글/댓글
+    when: 대시보드 로드
+    then: post_count, comment_count 정확히 표시
+
+  - name: 최신 게시글 표시
+    given: 10개 이상의 게시글
+    when: 페이지 로드
+    then: 최신 10개만 표시, created_at desc 정렬
+
+  - name: 빠른 링크 네비게이션
+    given: quick links 표시
+    when: 버튼 클릭
+    then: 해당 페이지로 라우트 변경
+
+  - name: 권한 검증
+    given: 일반 사용자가 /admin 접속 시도
+    when: 권한 확인
+    then: /login으로 리다이렉트
+
+performance:
+  load_time_target: 2s
+  stats_caching: 5min
+  auto_refresh: false

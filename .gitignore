@@ -1,0 +1,30 @@
+# 환경 변수 (실제 값 포함 파일)
+.env
+.env.local
+.env.docker
+backend/.env
+
+# 의존성
+node_modules/
+backend/vendor/
+admin/node_modules/
+
+# 빌드 산출물
+admin/.next/
+admin/out/
+
+# 로그
+backend/logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Docker 볼륨 데이터
+mysql_data/

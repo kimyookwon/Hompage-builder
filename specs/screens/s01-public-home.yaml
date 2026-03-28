@@ -1,0 +1,131 @@
+version: "2.0"
+screen_id: S01
+name: 공개 홈페이지
+generated: "2026-03-27"
+
+metadata:
+  route: /
+  type: public
+  layout: full-width
+  description: 동적 섹션 기반 공개 랜딩페이지
+
+data_requirements:
+  pages:
+    resource: pages
+    filter: { slug: "home" }
+    fields: [id, title, slug, is_published]
+  page_sections:
+    resource: page_sections
+    filter: { page_id: "{pages.id}" }
+    fields: [id, page_id, type, format, content, sort_order]
+    order_by: sort_order asc
+  site_settings:
+    resource: site_settings
+    fields: [id, site_name, logo_url, primary_color, secondary_color, background_color, gtm_code]
+  current_user:
+    resource: users
+    optional: true
+    fields: [id, email, role, status]
+
+components:
+  - name: NavHeader
+    type: header
+    description: 상단 네비게이션
+    features:
+      - logo_image: site_settings.logo_url
+      - site_title: site_settings.site_name
+      - menu_items: pages (발행된 페이지만)
+      - dark_mode_toggle: boolean
+      - login_button: users 미로그인 시 표시
+      - user_dropdown: users 로그인 시 표시
+
+  - name: DynamicSections
+    type: main
+    description: 페이지 섹션 렌더러
+    features:
+      - section_renderer: page_sections 반복 렌더링
+      - section_types: header, container, banner, footer
+      - section_formats:
+          - bento_grid: 이미지 그리드 레이아웃
+          - glassmorphism: 반투명 카드
+          - organic_shapes: 비정형 도형 배치
+          - text: 텍스트 콘텐츠
+          - gallery: 이미지 갤러리 (lightbox)
+
+  - name: DesignTokenInjector
+    type: utility
+    description: CSS 변수 동적 주입
+    features:
+      - primary_color_var: site_settings.primary_color
+      - secondary_color_var: site_settings.secondary_color
+      - background_color_var: site_settings.background_color
+      - target_elements: [body, buttons, links, cards]
+
+  - name: GTMTracker
+    type: utility
+    description: Google Tag Manager 추적
+    features:
+      - gtm_id: site_settings.gtm_code
+      - events:
+          - page_view: 페이지 로드 시
+          - dark_mode_toggle: 다크모드 전환 시
+          - navigation: 메뉴 클릭 시
+          - section_view: 섹션 스크롤 시
+
+  - name: Footer
+    type: footer
+    description: 하단 푸터
+    features:
+      - site_name: site_settings.site_name
+      - copyright: 연도 자동 표시
+      - links: 네비게이션 링크
+
+events:
+  darkModeToggle:
+    trigger: dark mode button click
+    action: toggle dark class on body
+    persist: localStorage
+
+  menuNavigate:
+    trigger: nav menu item click
+    action: navigate to page slug
+    target_screen: "/" + page.slug
+
+  loginClick:
+    trigger: login button click
+    target_screen: /login
+
+  externalLink:
+    trigger: content link click
+    action: open in new tab
+
+tests:
+  - name: 페이지 접속 및 섹션 렌더링
+    given: 공개 홈페이지 접속
+    when: 페이지 로드 완료
+    then: page_sections 기반으로 모든 섹션 렌더링
+
+  - name: 다크모드 토글
+    given: 사용자가 다크모드 버튼 클릭
+    when: 토글 상태 변경
+    then: body.dark 클래스 적용, localStorage 저장
+
+  - name: 메뉴 네비게이션
+    given: 네비게이션 메뉴 표시
+    when: 메뉴 항목 클릭
+    then: 해당 페이지로 라우트 변경
+
+  - name: GTM 추적
+    given: 페이지 로드
+    when: section_view 이벤트 발생
+    then: GTM에 이벤트 전송
+
+  - name: 로그인 상태 반영
+    given: 로그인한 사용자
+    when: 페이지 로드
+    then: user_dropdown 표시, login_button 숨김
+
+performance:
+  lighthouse_target: 90+
+  first_contentful_paint: 1.5s
+  section_lazy_loading: true

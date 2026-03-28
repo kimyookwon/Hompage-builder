@@ -1,0 +1,108 @@
+/* 2026 Organic Shapes 트렌드 CSS */
+
+/* 유기적 Blob 형태 */
+.blob {
+  border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+  animation: blob-morph 8s ease-in-out infinite;
+}
+
+.blob--alt {
+  border-radius: 40% 60% 70% 30% / 40% 70% 30% 60%;
+  animation: blob-morph 10s ease-in-out infinite reverse;
+}
+
+@keyframes blob-morph {
+  0%   { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; }
+  25%  { border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%; }
+  50%  { border-radius: 50% 60% 30% 60% / 30% 60% 70% 40%; }
+  75%  { border-radius: 60% 40% 60% 30% / 70% 30% 60% 50%; }
+  100% { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; }
+}
+
+/* 유기적 섹션 구분선 */
+.wave-divider {
+  position: relative;
+  overflow: hidden;
+}
+
+.wave-divider::after {
+  content: '';
+  display: block;
+  position: absolute;
+  bottom: -2px;
+  left: -5%;
+  width: 110%;
+  height: 80px;
+  background: var(--next-bg, #ffffff);
+  clip-path: ellipse(55% 60% at 50% 100%);
+}
+
+/* Squircle (정사각형+원형 중간 형태) */
+.squircle {
+  border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
+}
+
+/* 유기적 카드 */
+.organic-card {
+  border-radius: 1rem 3rem 1rem 3rem;
+  padding: 2rem;
+  transition: border-radius 0.4s ease, transform 0.3s ease;
+}
+
+.organic-card:hover {
+  border-radius: 3rem 1rem 3rem 1rem;
+  transform: scale(1.02);
+}
+
+/* 유기적 이미지 프레임 */
+.organic-frame {
+  border-radius: 63% 37% 54% 46% / 55% 48% 52% 45%;
+  overflow: hidden;
+}
+
+/* 유기적 버튼 */
+.organic-btn {
+  border-radius: 2rem 0.5rem 2rem 0.5rem;
+  padding: 0.75rem 2rem;
+  transition: border-radius 0.3s ease;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.organic-btn:hover {
+  border-radius: 0.5rem 2rem 0.5rem 2rem;
+}
+
+/* 유기적 배경 장식 */
+.organic-decor {
+  position: absolute;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.organic-decor--1 {
+  top: -10%;
+  right: -5%;
+  width: 300px;
+  height: 300px;
+  background: linear-gradient(135deg, var(--primary-color, #3b82f6), transparent);
+  border-radius: 63% 37% 54% 46% / 55% 48% 52% 45%;
+  opacity: 0.15;
+}
+
+.organic-decor--2 {
+  bottom: -10%;
+  left: -5%;
+  width: 250px;
+  height: 250px;
+  background: linear-gradient(225deg, var(--secondary-color, #8b5cf6), transparent);
+  border-radius: 37% 63% 46% 54% / 48% 55% 45% 52%;
+  opacity: 0.12;
+}
+
+/* 섹션 레이아웃 */
+.organic-section {
+  position: relative;
+  overflow: hidden;
+  padding: 5rem 2rem;
+}

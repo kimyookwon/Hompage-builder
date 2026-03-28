@@ -1,0 +1,11 @@
+-- 게시글 좋아요 테이블
+CREATE TABLE IF NOT EXISTS post_likes (
+  id        BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  post_id   BIGINT UNSIGNED NOT NULL COMMENT '게시글 ID',
+  user_id   BIGINT UNSIGNED NOT NULL COMMENT '사용자 ID',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+  UNIQUE KEY uq_post_user (post_id, user_id),
+  FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id)  ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

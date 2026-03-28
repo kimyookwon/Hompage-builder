@@ -1,0 +1,134 @@
+version: "2.0"
+screen_id: S02
+name: 로그인 / 소셜 로그인
+generated: "2026-03-27"
+
+metadata:
+  route: /login
+  type: auth
+  layout: centered
+  description: 이메일/비밀번호 및 소셜 로그인
+
+data_requirements: null
+
+components:
+  - name: LoginForm
+    type: form
+    description: 기본 로그인 폼
+    fields:
+      - email:
+          type: email
+          validation: required, valid email format
+          placeholder: "user@example.com"
+      - password:
+          type: password
+          validation: required, min 6 chars
+          placeholder: "Password"
+    actions:
+      - submit_button: "Login"
+      - loading_state: show spinner during submission
+
+  - name: SocialLoginButtons
+    type: button_group
+    description: 소셜 로그인 버튼
+    providers:
+      - google:
+          icon: google-logo
+          text: "Google로 로그인"
+          oauth_flow: authorization_code
+      - kakao:
+          icon: kakao-logo
+          text: "Kakao로 로그인"
+          oauth_flow: authorization_code
+      - naver:
+          icon: naver-logo
+          text: "Naver로 로그인"
+          oauth_flow: authorization_code
+
+  - name: RegisterLink
+    type: link
+    description: 회원가입 링크
+    text: "계정이 없으신가요? 가입하기"
+    target_screen: /register
+
+  - name: ErrorMessage
+    type: alert
+    description: 로그인 실패 에러 메시지
+    display_condition: form_submission_failed
+    variants:
+      - invalid_credentials: "이메일 또는 비밀번호가 잘못되었습니다"
+      - account_blocked: "차단된 계정입니다"
+      - network_error: "네트워크 오류가 발생했습니다"
+      - oauth_error: "소셜 로그인에 실패했습니다"
+
+  - name: TermsAgreement
+    type: checkbox
+    description: 약관 동의 (선택)
+    text: "서비스 약관에 동의합니다"
+
+events:
+  submitLogin:
+    trigger: login_form submit
+    action: POST /api/auth/login
+    payload: { email, password }
+    success_action: store token, navigate to /admin
+    error_action: show error message
+
+  socialLogin:
+    trigger: social button click
+    action: redirect to OAuth endpoint
+    params:
+      - provider: google | kakao | naver
+      - redirect_uri: "{BASE_URL}/oauth/callback"
+    success_action: store token, navigate to /admin
+    error_action: show error alert
+
+  navigateRegister:
+    trigger: register link click
+    action: navigate to /register
+
+  focusEmail:
+    trigger: email field focus
+    action: clear previous error message
+
+tests:
+  - name: 기본 로그인 성공
+    given: 유효한 이메일과 비밀번호
+    when: 로그인 폼 제출
+    then: token 저장, /admin으로 리다이렉트
+
+  - name: 로그인 실패 - 잘못된 비밀번호
+    given: 존재하는 이메일과 잘못된 비밀번호
+    when: 로그인 폼 제출
+    then: 에러 메시지 "이메일 또는 비밀번호가 잘못되었습니다" 표시
+
+  - name: 소셜 로그인 - Google
+    given: Google 버튼 클릭
+    when: OAuth 인증 완료
+    then: 토큰 저장, /admin으로 리다이렉트
+
+  - name: 소셜 로그인 - Kakao
+    given: Kakao 버튼 클릭
+    when: OAuth 인증 완료
+    then: 토큰 저장, /admin으로 리다이렉트
+
+  - name: 차단된 계정
+    given: 상태가 'blocked'인 사용자
+    when: 로그인 시도
+    then: 에러 메시지 "차단된 계정입니다" 표시
+
+  - name: 폼 검증 - 이메일 필수
+    given: 이메일 필드가 비어있음
+    when: 로그인 버튼 클릭
+    then: 필수 에러 메시지 표시, API 호출 안 함
+
+  - name: 폼 검증 - 비밀번호 최소 길이
+    given: 비밀번호 길이 < 6
+    when: 로그인 버튼 클릭
+    then: 검증 에러 메시지 표시
+
+accessibility:
+  - form_labels: associated with inputs
+  - error_messages: role="alert"
+  - keyboard_navigation: tab order correct
+  - screen_reader: form instructions announced

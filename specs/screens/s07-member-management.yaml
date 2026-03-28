@@ -1,0 +1,245 @@
+version: "2.0"
+screen_id: S07
+name: 회원 관리
+generated: "2026-03-27"
+
+metadata:
+  route: /admin/members
+  type: admin
+  layout: sidebar-main
+  auth_required: true
+  role_required: admin
+  description: 사용자 조회, 역할/상태 변경
+
+data_requirements:
+  users:
+    resource: users
+    pagination:
+      per_page: 20
+      default_page: 1
+    order_by: created_at desc
+    fields: [id, email, name, role, status, social_provider, created_at]
+    filters:
+      - search: email, name
+      - status: active, blocked
+      - role: admin, user
+  user_stats:
+    computed:
+      - post_count: "SELECT COUNT(*) FROM posts WHERE user_id = ?"
+      - comment_count: "SELECT COUNT(*) FROM comments WHERE user_id = ?"
+      per_user
+
+components:
+  - name: AdminNav
+    type: sidebar
+    reuse: S03.AdminNav
+
+  - name: PageHeader
+    type: header
+    description: 화면 헤더
+    title: "회원 관리"
+    subtitle: "총 {{users.meta.total_count}}명"
+
+  - name: MemberSearchFilter
+    type: filter_bar
+    description: 검색 및 필터
+    components:
+      - search_input:
+          placeholder: "이메일 또는 이름으로 검색"
+          search_fields: [email, name]
+          debounce: 300ms
+      - status_filter:
+          type: dropdown
+          options: [all, active, blocked]
+          default: all
+      - role_filter:
+          type: dropdown
+          options: [all, admin, user]
+          default: all
+      - sort_by:
+          type: dropdown
+          options:
+            - "최신순": created_at desc
+            - "이름순": name asc
+            - "이메일순": email asc
+          default: "최신순"
+      - clear_filters_button: reset all
+
+  - name: MemberTable
+    type: table
+    description: 회원 목록 테이블
+    columns:
+      - email: { label: "이메일", width: "25%", sortable: true }
+      - name: { label: "이름", width: "15%", sortable: true }
+      - provider: { label: "연동", width: "12%" }
+      - role: { label: "역할", width: "12%, dropdown" }
+      - status: { label: "상태", width: "12%", dropdown" }
+      - posts: { label: "게시글", width: "8%", align: "center" }
+      - created_at: { label: "가입일", width: "12%", format: "yyyy-MM-dd" }
+      - actions: { label: "작업", width: "4%" }
+    row_data_computed:
+      - provider_badge: "SocialBadge({social_provider})"
+      - posts: "SELECT COUNT(*) FROM posts WHERE user_id = ?"
+    inline_edit:
+      - role_dropdown:
+          current_value: users.role
+          options: [admin, user]
+          on_change: show ConfirmModal before API
+          api_action: PATCH /api/users/{id}
+      - status_dropdown:
+          current_value: users.status
+          options: [active, blocked]
+          on_change: show ConfirmModal before API
+          api_action: PATCH /api/users/{id}
+    row_actions:
+      - detail_icon: → MemberDetailModal
+
+  - name: SocialBadge
+    type: badge
+    description: 소셜 제공자 뱃지
+    variants:
+      - google: { icon: google-logo, color: blue, text: "Google" }
+      - kakao: { icon: kakao-logo, color: yellow, text: "Kakao" }
+      - naver: { icon: naver-logo, color: green, text: "Naver" }
+      - email: { icon: mail, color: gray, text: "Email" }
+
+  - name: ConfirmChangeModal
+    type: modal
+    description: 역할/상태 변경 확인
+    variants:
+      - role_change:
+          message: "이 사용자의 역할을 {{new_role}}로 변경하시겠습니까?"
+          warning: "역할 변경은 즉시 적용됩니다"
+      - status_change:
+          message: "이 사용자의 상태를 {{new_status}}로 변경하시겠습니까?"
+          warning: "차단된 사용자는 로그인할 수 없습니다"
+    actions:
+      - cancel_button
+      - confirm_button: "변경"
+
+  - name: MemberDetailModal
+    type: modal
+    description: 회원 상세정보
+    sections:
+      - user_info:
+          fields:
+            - email: { type: text, readonly: true }
+            - name: { type: text, readonly: true }
+            - role: { type: dropdown, editable: true }
+            - status: { type: dropdown, editable: true }
+      - social_info:
+          fields:
+            - social_provider: { type: text, readonly: true }
+            - social_id: { type: text, readonly: true }
+      - stats:
+          fields:
+            - posts: { type: number, readonly: true }
+            - comments: { type: number, readonly: true }
+      - timestamps:
+          - created_at: { format: "yyyy-MM-dd HH:mm:ss" }
+    actions:
+      - close_button
+      - edit_role_button: show ConfirmModal
+
+  - name: Pagination
+    type: pagination
+    reuse: S04.Pagination
+
+  - name: Toast
+    type: notification
+    display: bottom-right
+
+events:
+  searchMembers:
+    trigger: search input change
+    action: filter users by email/name
+    debounce: 300ms
+
+  filterByStatus:
+    trigger: status filter change
+    action: filter users by status
+
+  filterByRole:
+    trigger: role filter change
+    action: filter users by role
+
+  changeRole:
+    trigger: role dropdown change in table
+    action: show ConfirmChangeModal
+
+  confirmRoleChange:
+    trigger: ConfirmChangeModal confirm
+    action: PATCH /api/users/{id}
+    payload: { role: new_role }
+    success_action: refresh table, show success toast
+    error_action: revert selection, show error toast
+
+  changeStatus:
+    trigger: status dropdown change in table
+    action: show ConfirmChangeModal
+
+  confirmStatusChange:
+    trigger: ConfirmChangeModal confirm
+    action: PATCH /api/users/{id}
+    payload: { status: new_status }
+    success_action: refresh table, show success toast
+    error_action: revert selection, show error toast
+
+  viewDetail:
+    trigger: detail icon click
+    action: open MemberDetailModal
+    data_load: fetch user detail including posts/comments count
+
+  sortMembers:
+    trigger: sort_by dropdown change
+    action: sort table by selected field
+
+  changePage:
+    trigger: pagination click
+    action: fetch users for page number
+
+tests:
+  - name: 회원 목록 조회
+    given: /admin/members 접속
+    when: 페이지 로드
+    then: 회원 목록 20개 표시, 최신순 정렬
+
+  - name: 회원 검색
+    given: search input 활성화
+    when: 검색어 입력
+    then: 300ms 후 이메일/이름으로 필터링
+
+  - name: 상태 필터
+    given: status filter 드롭다운
+    when: "blocked" 선택
+    then: 차단된 회원만 표시
+
+  - name: 역할 변경 확인
+    given: role 드롭다운에서 "admin" 선택
+    when: ConfirmChangeModal 표시
+    then: 경고 메시지 표시, 확인 후 API 호출
+
+  - name: 역할 변경 성공
+    given: 역할 변경 확인 클릭
+    when: API 응답 200
+    then: 테이블 업데이트, 성공 토스트
+
+  - name: 상태 변경 - 차단
+    given: status 드롭다운에서 "blocked" 선택
+    when: 변경 확인
+    then: 사용자 차단, 해당 행의 status 업데이트
+
+  - name: 소셜 뱃지 표시
+    given: social_provider가 "google"
+    when: 목록 렌더링
+    then: Google 뱃지 표시
+
+  - name: 회원 상세정보
+    given: detail 아이콘 클릭
+    when: MemberDetailModal 표시
+    then: 사용자 정보, 게시글 수, 댓글 수 표시
+
+performance:
+  table_load_time: 1.5s
+  search_debounce: 300ms
+  role_change_api_time: 500ms

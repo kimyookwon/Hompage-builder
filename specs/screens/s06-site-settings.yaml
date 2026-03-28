@@ -1,0 +1,217 @@
+version: "2.0"
+screen_id: S06
+name: 사이트 설정
+generated: "2026-03-27"
+
+metadata:
+  route: /admin/settings
+  type: admin
+  layout: sidebar-main
+  auth_required: true
+  role_required: admin
+  description: 로고, 컬러, GTM, OAuth 설정
+
+data_requirements:
+  site_settings:
+    resource: site_settings
+    fields: [id, site_name, logo_url, primary_color, secondary_color, background_color, gtm_code, google_client_id, kakao_api_key, naver_client_id]
+
+components:
+  - name: AdminNav
+    type: sidebar
+    reuse: S03.AdminNav
+
+  - name: PageHeader
+    type: header
+    description: 화면 헤더
+    title: "사이트 설정"
+
+  - name: LogoSection
+    type: form_section
+    description: 로고 설정
+    components:
+      - label: "사이트 로고"
+      - LogoUploader:
+          type: dropzone
+          accept: "image/*"
+          max_size: 5MB
+          max_files: 1
+          features:
+            - drag_drop: true
+            - file_browser: true
+            - preview: circular thumbnail
+            - delete_button: remove current logo
+            - api_action: PUT /api/site-settings/logo
+          error_messages:
+            - file_too_large: "파일 크기는 5MB 이하여야 합니다"
+            - invalid_format: "이미지 파일만 업로드 가능합니다"
+
+  - name: SiteNameInput
+    type: text_input
+    description: 사이트 명
+    value: site_settings.site_name
+    validation: required, max 50
+    on_change: mark as dirty
+
+  - name: ColorTokenPicker
+    type: form_section
+    description: 디자인 토큰 색상
+    components:
+      - primary_color:
+          label: "주색"
+          type: color picker + hex input
+          value: site_settings.primary_color
+          default: "#3B82F6"
+          on_change: update ColorPreview, apply to design tokens
+      - secondary_color:
+          label: "보조색"
+          type: color picker + hex input
+          value: site_settings.secondary_color
+          default: "#6B7280"
+          on_change: update ColorPreview, apply to design tokens
+      - background_color:
+          label: "배경색"
+          type: color picker + hex input
+          value: site_settings.background_color
+          default: "#FFFFFF"
+          on_change: update ColorPreview, apply to design tokens
+
+  - name: ColorPreview
+    type: visualization
+    description: 색상 조합 미리보기
+    elements:
+      - primary_button: "버튼 (주색)"
+      - secondary_button: "버튼 (보조색)"
+      - background_card: "카드 (배경색)"
+      - text_preview: "텍스트 미리보기"
+    update_trigger: color changes (real-time)
+    tooltip: "공개 페이지에도 즉시 적용됩니다"
+
+  - name: GtmCodeSection
+    type: form_section
+    description: Google Tag Manager
+    components:
+      - gtm_code_input:
+          label: "GTM ID (예: GTM-XXXXXX)"
+          type: text input
+          value: site_settings.gtm_code
+          validation: max 20, format GTM-*
+          on_change: mark as dirty
+
+  - name: OAuthSection
+    type: form_section
+    description: OAuth 설정
+    sub_sections:
+      - google_oauth:
+          provider: "Google"
+          icon: google-logo
+          fields:
+            - client_id: { type: text, max: 255 }
+            - client_secret: { type: password, max: 255 }
+          help_text: "Google Cloud Console에서 발급받으세요"
+      - kakao_oauth:
+          provider: "Kakao"
+          icon: kakao-logo
+          fields:
+            - api_key: { type: text, max: 255 }
+          help_text: "Kakao Developers에서 발급받으세요"
+      - naver_oauth:
+          provider: "Naver"
+          icon: naver-logo
+          fields:
+            - client_id: { type: text, max: 255 }
+          help_text: "Naver Developers에서 발급받으세요"
+
+  - name: ActionBar
+    type: footer
+    description: 저장/취소 버튼
+    buttons:
+      - cancel_button: "취소 (secondary)"
+      - save_button: "저장 (primary)" | disabled if no changes
+
+  - name: Toast
+    type: notification
+    display: bottom-right
+    auto_close: 4s
+
+events:
+  uploadLogo:
+    trigger: file drop or file select
+    action: upload via PUT /api/site-settings/logo
+    success_action: show preview, update logo_url
+    error_action: show error toast, log to console
+
+  changeColor:
+    trigger: color picker or hex input change
+    action: update ColorPreview in real-time
+    visual_update: instantaneous (no API call)
+
+  changeSiteName:
+    trigger: site_name input change
+    action: mark form as dirty
+
+  changeOAuthKey:
+    trigger: oauth field change
+    action: mark form as dirty, validate format
+
+  saveSettings:
+    trigger: "저장" 버튼 클릭
+    action: PATCH /api/site-settings
+    payload:
+      - site_name
+      - logo_url
+      - primary_color
+      - secondary_color
+      - background_color
+      - gtm_code
+      - google_client_id/secret
+      - kakao_api_key
+      - naver_client_id
+    success_action: show "설정 저장됨" toast, reset form state
+    error_action: show error toast with details
+    server_side_effect: CSS variables 다시 생성
+
+  cancelChanges:
+    trigger: "취소" 버튼 클릭
+    action: reset form to last saved values
+
+tests:
+  - name: 사이트 명 변경
+    given: site_name 입력 필드 표시
+    when: 값 변경 후 저장 클릭
+    then: API 호출, 저장 토스트
+
+  - name: 로고 업로드
+    given: LogoUploader 표시
+    when: 이미지 파일 드래그
+    then: 미리보기 표시, API 업로드, 성공 토스트
+
+  - name: 로고 파일 크기 검증
+    given: 5MB 초과 파일 선택
+    when: 업로드 시도
+    then: 에러 메시지 "파일 크기는 5MB 이하여야 합니다"
+
+  - name: 컬러 변경 미리보기
+    given: color picker 조작
+    when: 색상 선택
+    then: ColorPreview 즉시 업데이트, 공개 페이지에도 반영 (CSS variables)
+
+  - name: 저장 전 검증
+    given: GTM ID 필드에 유효하지 않은 포맷 입력
+    when: 저장 클릭
+    then: 에러 "GTM ID 형식이 올바르지 않습니다" 표시
+
+  - name: 저장 취소
+    given: 여러 필드 수정
+    when: "취소" 버튼 클릭
+    then: 모든 변경사항 폐기, 마지막 저장 값으로 복원
+
+  - name: OAuth 키 저장
+    given: Google/Kakao/Naver 키 입력
+    when: 저장 클릭
+    then: 암호화되어 저장, 보안 확인
+
+performance:
+  color_preview_update: real-time (no delay)
+  save_response_time: 1.5s
+  logo_upload_time: 3s (typical 2MB file)

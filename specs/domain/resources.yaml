@@ -1,0 +1,96 @@
+version: "2.0"
+generated: "2026-03-27"
+project: homepage-builder
+
+resources:
+  users:
+    description: 회원 정보
+    fields:
+      id: { type: int, pk: true }
+      email: { type: string, unique: true }
+      name: { type: string }
+      password_hash: { type: string, nullable: true }
+      role: { type: enum, values: [admin, user] }
+      status: { type: enum, values: [active, blocked] }
+      social_provider: { type: enum, values: [google, kakao, naver, null], nullable: true }
+      social_id: { type: string, nullable: true }
+      created_at: { type: datetime }
+
+  pages:
+    description: 사이트 페이지
+    fields:
+      id: { type: int, pk: true }
+      title: { type: string }
+      slug: { type: string, unique: true }
+      is_published: { type: boolean, default: false }
+      sort_order: { type: int }
+      created_at: { type: datetime }
+      updated_at: { type: datetime }
+
+  page_sections:
+    description: 페이지 컨테이너 섹션
+    fields:
+      id: { type: int, pk: true }
+      page_id: { type: int, fk: pages.id }
+      type: { type: enum, values: [header, container, banner, footer] }
+      format: { type: enum, values: [bento_grid, glassmorphism, organic_shapes, text, gallery] }
+      content: { type: json }
+      sort_order: { type: int }
+      created_at: { type: datetime }
+
+  boards:
+    description: 게시판 설정
+    fields:
+      id: { type: int, pk: true }
+      name: { type: string }
+      board_type: { type: enum, values: [general, gallery] }
+      read_permission: { type: enum, values: [public, user, admin_only] }
+      write_permission: { type: enum, values: [user, admin_only] }
+      created_at: { type: datetime }
+
+  posts:
+    description: 게시글
+    fields:
+      id: { type: int, pk: true }
+      board_id: { type: int, fk: boards.id }
+      user_id: { type: int, fk: users.id }
+      title: { type: string }
+      content: { type: text }
+      comment_count: { type: int, default: 0 }
+      created_at: { type: datetime }
+      updated_at: { type: datetime }
+
+  comments:
+    description: 댓글
+    fields:
+      id: { type: int, pk: true }
+      post_id: { type: int, fk: posts.id }
+      user_id: { type: int, fk: users.id }
+      content: { type: text }
+      created_at: { type: datetime }
+
+  site_settings:
+    description: 사이트 전역 설정
+    fields:
+      id: { type: int, pk: true }
+      site_name: { type: string }
+      logo_url: { type: string, nullable: true }
+      primary_color: { type: string, default: "#3B82F6" }
+      secondary_color: { type: string, default: "#6B7280" }
+      background_color: { type: string, default: "#FFFFFF" }
+      gtm_code: { type: string, nullable: true }
+      google_client_id: { type: string, nullable: true }
+      google_client_secret: { type: string, nullable: true }
+      kakao_api_key: { type: string, nullable: true }
+      naver_client_id: { type: string, nullable: true }
+      updated_at: { type: datetime }
+
+  media_assets:
+    description: 업로드된 미디어 파일
+    fields:
+      id: { type: int, pk: true }
+      file_path: { type: string }
+      file_type: { type: string }
+      file_size: { type: int }
+      uploaded_by: { type: int, fk: users.id }
+      created_at: { type: datetime }

@@ -1,0 +1,192 @@
+version: "2.0"
+screen_id: S05
+name: 컨테이너 편집기
+generated: "2026-03-27"
+
+metadata:
+  route: /admin/pages/{page_id}/edit
+  type: admin
+  layout: three-panel
+  auth_required: true
+  role_required: admin
+  description: 드래그앤드롭 기반 섹션 편집기
+
+data_requirements:
+  pages:
+    resource: pages
+    filter: { id: "{page_id}" }
+    fields: [id, title, slug]
+  page_sections:
+    resource: page_sections
+    filter: { page_id: "{page_id}" }
+    fields: [id, page_id, type, format, content, sort_order]
+    order_by: sort_order asc
+  site_settings:
+    resource: site_settings
+    fields: [id, primary_color, secondary_color, background_color]
+
+components:
+  - name: SectionTree
+    type: sidebar
+    position: left
+    description: 섹션 구조 트리
+    features:
+      - section_types: [header, container, banner, footer]
+      - drag_reorder: true
+      - collapse_expand: per section type
+      - visual_indicators: type icon, format badge
+      - context_menu: [edit, duplicate, delete]
+    rendering:
+      - collapsed_by_default: container 섹션은 축소
+      - header_section: 최상단 고정
+      - footer_section: 최하단 고정
+
+  - name: SectionEditor
+    type: main
+    position: center
+    description: 섹션 콘텐츠 편집기
+    modes:
+      - format_selector:
+          options: [bento_grid, glassmorphism, organic_shapes, text, gallery]
+          on_change: update preview
+          disabled_for: header/footer (고정 포맷)
+      - content_editor:
+          type: json editor or rich text (포맷에 따라)
+          placeholder: "섹션 콘텐츠를 입력하세요"
+          syntax_highlight: true
+      - quick_actions:
+          - duplicate_section
+          - move_up
+          - move_down
+
+  - name: PreviewPanel
+    type: sidebar
+    position: right
+    description: 반응형 미리보기 패널
+    features:
+      - device_selector: [mobile: 375px, tablet: 768px, desktop: 1440px]
+      - live_preview: 실시간 콘텐츠 반영
+      - color_preview: site_settings 색상 적용
+      - scroll_sync: 편집기와 미리보기 스크롤 동기화
+      - full_screen_mode: 미리보기 전체화면
+
+  - name: AddSectionModal
+    type: modal
+    description: 새 섹션 추가 모달
+    step_1_type:
+      options: [header, container, banner, footer]
+      default: container
+      header_footer_hint: "페이지당 1개만 가능"
+    step_2_format:
+      options_by_type:
+        container: [bento_grid, glassmorphism, organic_shapes, text, gallery]
+        banner: [text, gallery]
+        header: [fixed] (포맷 없음)
+        footer: [fixed] (포맷 없음)
+      visual_preview: 각 포맷의 샘플 이미지
+    actions:
+      - cancel_button
+      - create_button: disabled if header/footer already exists
+
+  - name: ActionBar
+    type: header
+    description: 상단 액션 바
+    left_section:
+      - page_title: pages.title (수정 가능)
+      - page_slug: pages.slug (읽기 전용)
+    right_section:
+      - add_section_button: "+ 섹션 추가"
+      - save_button: "저장" (primary)
+      - cancel_button: "취소" (secondary)
+      - auto_save_indicator: "저장됨 / 저장 중... / 저장 실패"
+
+  - name: DeviceResponsivePreview
+    type: utility
+    description: 디바이스별 반응형 미리보기
+    breakpoints:
+      - mobile: max-width: 375px
+      - tablet: 376px - 768px
+      - desktop: 769px+
+
+events:
+  addSection:
+    trigger: "+ 섹션 추가" 버튼 클릭
+    action: show AddSectionModal
+    on_confirm: POST /api/page-sections, add to tree with sort_order
+
+  editSection:
+    trigger: SectionTree 항목 클릭
+    action: load section content to editor
+
+  deleteSection:
+    trigger: context menu delete or backspace
+    action: show confirm modal, DELETE /api/page-sections/{id}
+    refresh: tree and preview
+
+  reorderSection:
+    trigger: drag section in tree
+    action: update sort_order locally
+    on_drop: PATCH /api/page-sections/{id} bulk update
+
+  saveAll:
+    trigger: "저장" 버튼 클릭
+    action: POST /api/pages/{page_id}/save-all
+    payload: { sections: [...] }
+    success_action: show "저장 완료", disable save button briefly
+    error_action: show error toast, keep unsaved state
+
+  autoSave:
+    trigger: content change
+    debounce: 1s
+    action: optimistic update, auto-save in background
+    error_action: show "저장 실패" indicator
+
+  togglePreviewDevice:
+    trigger: device selector click
+    action: change preview panel viewport width
+    persist: localStorage
+
+  duplicateSection:
+    trigger: context menu duplicate
+    action: clone section, create new id, insert below current
+
+tests:
+  - name: 페이지 로드
+    given: /admin/pages/{page_id}/edit 접속
+    when: 페이지 로드
+    then: 섹션 트리/편집기/미리보기 로드
+
+  - name: 섹션 추가
+    given: "+ 섹션 추가" 클릭
+    when: 모달에서 타입/포맷 선택
+    then: 트리에 추가, 편집기 활성화, 미리보기 반영
+
+  - name: 섹션 드래그 정렬
+    given: 섹션 트리 표시
+    when: 섹션을 위/아래로 드래그
+    then: sort_order 업데이트, 미리보기 즉시 반영
+
+  - name: 콘텐츠 편집 및 미리보기
+    given: 섹션 클릭
+    when: 콘텐츠 편집 후 입력
+    then: 1초 후 자동저장, 미리보기 실시간 업데이트
+
+  - name: 반응형 미리보기
+    given: 미리보기 패널 표시
+    when: 디바이스 선택 변경
+    then: 해당 넓이로 미리보기 렌더링
+
+  - name: 저장 실패 복구
+    given: 저장 중 네트워크 오류 발생
+    when: 복구 버튼 클릭 또는 재시도
+    then: 다시 저장 시도, 성공 시 상태 업데이트
+
+  - name: 유효하지 않은 JSON
+    given: SectionEditor에 유효하지 않은 JSON 입력
+    when: 저장 클릭
+    then: 에러 "유효하지 않은 JSON 형식입니다" 표시
+
+accessibility:
+  - tree_navigation: keyboard arrow keys
+  - edit_mode: enter to edit, escape to cancel
+  - live_region: auto-save status announced

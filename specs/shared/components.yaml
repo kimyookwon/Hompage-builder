@@ -1,0 +1,281 @@
+version: "2.0"
+project: homepage-builder
+generated: "2026-03-27"
+category: shared_components
+
+components:
+  AdminNav:
+    description: 관리자 사이드바 네비게이션
+    used_in: [S03, S04, S05, S06, S07, S08]
+    properties:
+      width: 250px
+      position: fixed left
+      background: light gray / dark mode aware
+      menu_items:
+        - label: "대시보드"
+          icon: dashboard
+          route: /admin
+        - label: "페이지 관리"
+          icon: file
+          route: /admin/pages
+        - label: "회원 관리"
+          icon: users
+          route: /admin/members
+        - label: "게시판 관리"
+          icon: message
+          route: /admin/boards
+        - label: "사이트 설정"
+          icon: settings
+          route: /admin/settings
+    interactions:
+      - highlight_current_page: active menu item
+      - collapse_expand: responsive (mobile 시 접기)
+      - user_menu: 우측 하단 사용자 메뉴
+    accessibility:
+      - semantic: <nav> <ul> <li> <a>
+      - keyboard: arrow keys, enter
+      - role: navigation
+
+  Pagination:
+    description: 페이지네이션 컨트롤
+    used_in: [S04, S07, S08, S09]
+    properties:
+      current_page: number
+      total_pages: number
+      total_count: number
+      per_page: number
+      per_page_options: [10, 20, 50] (optional)
+    components:
+      - previous_button: disabled on page 1
+      - page_numbers: 현재 기준 좌우 3개씩 표시
+      - current_page_input: optional 직접 입력
+      - next_button: disabled on last page
+      - per_page_selector: optional 항목당 개수 선택
+      - total_info: "전체 {{total_count}}개 중 {{start}}-{{end}}"
+    interactions:
+      - click_page: emit changePage(page_number)
+      - keyboard: left/right arrow navigate pages
+    responsive:
+      - mobile: prev/next 버튼만, 페이지 입력 제거
+      - desktop: 전체 컨트롤 표시
+
+  ConfirmModal:
+    description: 삭제/변경 확인 모달
+    used_in: [S04, S05, S07, S08, S09]
+    properties:
+      title: string (optional)
+      message: string (필수)
+      warning_text: string (optional)
+      action_type: delete | change | confirm (default: confirm)
+    variants:
+      delete:
+        button_color: red
+        button_text: "삭제"
+        cancel_text: "취소"
+      change:
+        button_color: blue
+        button_text: "변경"
+        cancel_text: "취소"
+      confirm:
+        button_color: blue
+        button_text: "확인"
+        cancel_text: "취소"
+    actions:
+      - onCancel: close modal
+      - onConfirm: emit event (handled by parent)
+    animation:
+      - enter: fade in + slide down 200ms
+      - exit: fade out 150ms
+
+  SearchBar:
+    description: 검색 입력 컴포넌트
+    used_in: [S04, S07, S09]
+    properties:
+      placeholder: string
+      debounce: 300ms (기본값)
+      search_fields: [string] (서버에 알려줄 필드명)
+      clearable: true (기본값)
+    interactions:
+      - onChange: debounce 후 검색 실행
+      - onClear: 검색어 초기화
+      - keyboard: enter to submit immediately
+    visual:
+      - search_icon: 좌측
+      - clear_button: 우측 (내용 있을 때만)
+
+  LoadingSpinner:
+    description: 로딩 표시
+    used_in: [모든 async 작업]
+    properties:
+      size: small | medium | large (기본: medium)
+      inline: boolean (기본: false - 화면 중앙, true - 행렬 내)
+      message: string (optional - 로딩 메시지)
+    variants:
+      skeleton: 콘텐츠 구조 표시 (테이블, 카드 등)
+      spinner: 회전 애니메이션
+      progress: 진행 바
+    animation: smooth rotation 1.5s infinite
+
+  ErrorMessage:
+    description: 에러 메시지 표시
+    used_in: [S02, S05, S06, S07, 등 form 있는 곳]
+    properties:
+      message: string
+      type: error | warning | info (기본: error)
+      dismissible: boolean (기본: true)
+      code: string (선택 - 에러 코드)
+    styling:
+      error: red bg, red text
+      warning: yellow bg, orange text
+      info: blue bg, blue text
+    interactions:
+      - onDismiss: close message
+      - role: alert
+
+  SocialBadge:
+    description: 소셜 로그인 제공자 뱃지
+    used_in: [S07, S09 (선택)]
+    properties:
+      provider: google | kakao | naver | email
+      size: small | medium (기본: small)
+    variants:
+      google:
+        icon: google logo
+        color: blue
+        text: "Google"
+      kakao:
+        icon: kakao logo
+        color: yellow
+        text: "Kakao"
+      naver:
+        icon: naver logo
+        color: green
+        text: "Naver"
+      email:
+        icon: mail icon
+        color: gray
+        text: "Email"
+    display: inline-flex, center aligned
+
+  NavHeader:
+    description: 공개 페이지 상단 네비게이션
+    used_in: [S01, S09]
+    properties:
+      site_name: string (site_settings)
+      logo_url: string (site_settings)
+      menu_items: Page[] (발행된 페이지만)
+      current_user: User | null
+    components:
+      - logo: clickable → /
+      - site_title: text
+      - nav_menu: list of pages
+      - dark_mode_toggle: checkbox with icon
+      - auth_buttons:
+          - login_button: if not logged in
+          - user_dropdown: if logged in
+    responsive:
+      - desktop: full menu visible
+      - mobile: hamburger menu
+    sticky: position sticky top 0
+
+  Toast:
+    description: 토스트 알림
+    used_in: [모든 화면]
+    properties:
+      message: string (필수)
+      type: success | error | info | warning (기본: info)
+      duration: number (ms, 기본: 4000)
+      position: bottom-right | bottom-left | top-right | top-left
+    variants:
+      success: green checkmark
+      error: red X
+      info: blue info icon
+      warning: yellow warning icon
+    interactions:
+      - auto_close: duration 후 자동 닫힘
+      - dismiss_button: 수동 닫기
+    animation: slide in from bottom, slide out 250ms
+
+  ColorPicker:
+    description: 색상 선택 컴포넌트
+    used_in: [S06]
+    properties:
+      value: hex string (e.g., "#3B82F6")
+      label: string
+      allow_custom: boolean (기본: true)
+    components:
+      - color_input: visual color picker
+      - hex_input: text input for hex code
+      - preset_colors: common colors (optional)
+    interactions:
+      - onChange: emit color change event
+      - validation: valid hex format
+    accessibility:
+      - input accessibility
+      - color contrast warning
+
+  Table:
+    description: 데이터 테이블 (재사용 가능)
+    used_in: [S04, S07, S08, S09]
+    properties:
+      columns: Column[]
+      rows: any[]
+      sortable: boolean (기본: true)
+      selectable: boolean (기본: false)
+      pagination: Pagination (기본: enabled)
+    column_properties:
+      - label: string
+      - width: string (e.g., "25%")
+      - align: left | center | right (기본: left)
+      - sortable: boolean (default inherits from table)
+      - type: text | number | date | badge | action
+      - format: string (e.g., "yyyy-MM-dd")
+    features:
+      - sorting: click header to sort
+      - row_hover: highlight row
+      - inline_actions: buttons within cells
+      - responsive: horizontal scroll on mobile
+    accessibility:
+      - semantic: <table> <thead> <tbody> <th>
+      - row_selection: checkboxes with proper labels
+
+  Modal:
+    description: 모달 대화상자
+    used_in: [모든 create/edit/confirm 작업]
+    properties:
+      title: string
+      size: small | medium | large | fullscreen (기본: medium)
+      has_close_button: boolean (기본: true)
+      has_backdrop: boolean (기본: true)
+      backdrop_closable: boolean (기본: true)
+    components:
+      - header: title + close button
+      - body: content
+      - footer: actions (cancel, submit 등)
+    animations:
+      - enter: fade in + scale 200ms
+      - exit: fade out 150ms
+    interactions:
+      - close: click X, click backdrop, Escape key
+      - focus_trap: tab within modal
+    accessibility:
+      - role: dialog
+      - aria-modal: true
+      - aria-labelledby: title element id
+
+  Dropdown:
+    description: 드롭다운 선택 컴포넌트
+    used_in: [모든 필터, 정렬, 폼]
+    properties:
+      options: { label, value }[]
+      value: any
+      disabled: boolean (기본: false)
+      multiple: boolean (기본: false)
+      clearable: boolean (기본: false)
+    interactions:
+      - onChange: emit selected value(s)
+      - keyboard: arrow keys, enter, escape
+      - search: filterable (if many options)
+    responsive:
+      - mobile: native select 가능 (option)
+      - desktop: custom dropdown

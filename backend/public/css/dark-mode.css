@@ -1,0 +1,77 @@
+/* 다크 모드 CSS */
+
+:root {
+  --bg-color: #ffffff;
+  --text-color: #0f172a;
+  --text-muted: #64748b;
+  --surface-color: #f8fafc;
+  --border-color: #e2e8f0;
+  --card-bg: #ffffff;
+  --nav-bg: #ffffff;
+  --input-bg: #ffffff;
+  --shadow-color: rgba(0, 0, 0, 0.08);
+  --overlay-bg: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] {
+  --bg-color: #0f172a;
+  --text-color: #f1f5f9;
+  --text-muted: #94a3b8;
+  --surface-color: #1e293b;
+  --border-color: #334155;
+  --card-bg: #1e293b;
+  --nav-bg: #0f172a;
+  --input-bg: #1e293b;
+  --shadow-color: rgba(0, 0, 0, 0.3);
+  --overlay-bg: rgba(0, 0, 0, 0.7);
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* 시스템 다크 모드 자동 감지 */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg-color: #0f172a;
+    --text-color: #f1f5f9;
+    --text-muted: #94a3b8;
+    --surface-color: #1e293b;
+    --border-color: #334155;
+    --card-bg: #1e293b;
+    --nav-bg: #0f172a;
+    --input-bg: #1e293b;
+    --shadow-color: rgba(0, 0, 0, 0.3);
+    --overlay-bg: rgba(0, 0, 0, 0.7);
+  }
+}
+
+/* 다크 모드 토글 버튼 */
+.dark-mode-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: 2rem;
+  padding: 0.35rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--text-color);
+  transition: all 0.2s ease;
+}
+
+.dark-mode-toggle:hover {
+  border-color: var(--primary-color, #3b82f6);
+}
+
+.dark-mode-toggle__icon {
+  font-size: 1rem;
+  transition: transform 0.4s ease;
+}
+
+[data-theme="dark"] .dark-mode-toggle__icon {
+  transform: rotate(180deg);
+}

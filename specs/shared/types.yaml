@@ -1,0 +1,401 @@
+version: "2.0"
+project: homepage-builder
+generated: "2026-03-27"
+category: shared_types
+
+enums:
+  UserRole:
+    values:
+      - admin: 관리자 권한 (모든 기능)
+      - user: 일반 사용자 (제한된 기능)
+    default: user
+
+  UserStatus:
+    values:
+      - active: 활성 계정
+      - blocked: 차단된 계정 (로그인 불가)
+    default: active
+
+  SocialProvider:
+    values:
+      - google: Google OAuth
+      - kakao: Kakao OAuth
+      - naver: Naver OAuth
+      - null: 소셜 로그인 미사용 (이메일 로그인만)
+    default: null
+
+  BoardType:
+    values:
+      - general: 일반 게시판 (텍스트)
+      - gallery: 갤러리 게시판 (이미지 중심)
+    default: general
+
+  ReadPermission:
+    values:
+      - public: 모든 사용자 읽기 가능
+      - user: 로그인한 사용자만 읽기
+      - admin_only: 관리자만 읽기
+    default: public
+
+  WritePermission:
+    values:
+      - user: 로그인한 사용자만 작성
+      - admin_only: 관리자만 작성
+    default: user
+
+  SectionType:
+    values:
+      - header: 페이지 헤더 (상단 고정, 페이지당 1개)
+      - container: 일반 컨테이너 (메인 콘텐츠)
+      - banner: 배너 섹션 (광고/공지)
+      - footer: 페이지 푸터 (하단 고정, 페이지당 1개)
+    default: container
+
+  SectionFormat:
+    values:
+      - bento_grid: 이미지 그리드 (2x2, 3x3 등)
+      - glassmorphism: 반투명 카드 (모던 스타일)
+      - organic_shapes: 비정형 도형 배치
+      - text: 텍스트 콘텐츠 (제목, 본문)
+      - gallery: 이미지 갤러리 (카루셀, lightbox)
+    default: text
+    notes: "header/footer 섹션은 고정 포맷"
+
+  SortOrder:
+    values:
+      - asc: 오름차순
+      - desc: 내림차순
+    default: desc
+
+models:
+  PaginationMeta:
+    description: 페이지네이션 메타데이터
+    fields:
+      current_page:
+        type: integer
+        description: "현재 페이지 번호 (1-based)"
+      total_pages:
+        type: integer
+        description: "전체 페이지 수"
+      total_count:
+        type: integer
+        description: "전체 항목 수"
+      per_page:
+        type: integer
+        description: "페이지당 항목 수"
+      has_next:
+        type: boolean
+        description: "다음 페이지 존재 여부"
+      has_prev:
+        type: boolean
+        description: "이전 페이지 존재 여부"
+
+  PaginatedResponse:
+    description: 페이지네이션된 API 응답
+    generic: T
+    fields:
+      data:
+        type: T[]
+        description: "현재 페이지의 데이터"
+      meta:
+        type: PaginationMeta
+        description: "페이지네이션 정보"
+
+  ApiResponse:
+    description: 표준 API 응답
+    generic: T
+    fields:
+      success:
+        type: boolean
+        description: "요청 성공 여부"
+      data:
+        type: T
+        nullable: true
+        description: "응답 데이터"
+      error:
+        type: ErrorDetail
+        nullable: true
+        description: "에러 정보"
+      timestamp:
+        type: datetime
+        description: "응답 시간"
+
+  ErrorDetail:
+    description: 에러 상세 정보
+    fields:
+      code:
+        type: string
+        description: "에러 코드 (e.g., INVALID_EMAIL)"
+      message:
+        type: string
+        description: "사용자 친화적 에러 메시지"
+      details:
+        type: object
+        nullable: true
+        description: "추가 에러 정보 (필드별 에러 등)"
+
+  User:
+    description: 사용자 정보
+    fields:
+      id:
+        type: integer
+        description: "사용자 ID"
+      email:
+        type: string
+        format: email
+        description: "이메일 (유니크)"
+      name:
+        type: string
+        description: "사용자 이름"
+      password_hash:
+        type: string
+        nullable: true
+        description: "해시된 비밀번호"
+      role:
+        type: UserRole
+        description: "사용자 역할"
+      status:
+        type: UserStatus
+        description: "계정 상태"
+      social_provider:
+        type: SocialProvider
+        description: "소셜 로그인 제공자"
+      social_id:
+        type: string
+        nullable: true
+        description: "소셜 제공자 ID"
+      created_at:
+        type: datetime
+        description: "가입 날짜"
+
+  Page:
+    description: 사이트 페이지
+    fields:
+      id:
+        type: integer
+        description: "페이지 ID"
+      title:
+        type: string
+        description: "페이지 제목"
+      slug:
+        type: string
+        unique: true
+        description: "URL 슬러그 (e.g., 'about-us')"
+      is_published:
+        type: boolean
+        default: false
+        description: "발행 여부"
+      sort_order:
+        type: integer
+        description: "메뉴 정렬 순서"
+      created_at:
+        type: datetime
+        description: "생성 날짜"
+      updated_at:
+        type: datetime
+        description: "수정 날짜"
+
+  PageSection:
+    description: 페이지 섹션
+    fields:
+      id:
+        type: integer
+        description: "섹션 ID"
+      page_id:
+        type: integer
+        description: "페이지 ID (외래키)"
+      type:
+        type: SectionType
+        description: "섹션 타입"
+      format:
+        type: SectionFormat
+        description: "섹션 포맷"
+      content:
+        type: json
+        description: "섹션 콘텐츠 (포맷별로 다른 스키마)"
+      sort_order:
+        type: integer
+        description: "섹션 정렬 순서"
+      created_at:
+        type: datetime
+        description: "생성 날짜"
+
+  Board:
+    description: 게시판 설정
+    fields:
+      id:
+        type: integer
+        description: "게시판 ID"
+      name:
+        type: string
+        description: "게시판명"
+      board_type:
+        type: BoardType
+        description: "게시판 타입"
+      read_permission:
+        type: ReadPermission
+        description: "읽기 권한"
+      write_permission:
+        type: WritePermission
+        description: "쓰기 권한"
+      created_at:
+        type: datetime
+        description: "생성 날짜"
+
+  Post:
+    description: 게시글
+    fields:
+      id:
+        type: integer
+        description: "게시글 ID"
+      board_id:
+        type: integer
+        description: "게시판 ID (외래키)"
+      user_id:
+        type: integer
+        description: "작성자 ID (외래키)"
+      title:
+        type: string
+        description: "게시글 제목"
+      content:
+        type: text
+        description: "게시글 내용"
+      comment_count:
+        type: integer
+        default: 0
+        description: "댓글 수"
+      created_at:
+        type: datetime
+        description: "작성 날짜"
+      updated_at:
+        type: datetime
+        description: "수정 날짜"
+
+  Comment:
+    description: 댓글
+    fields:
+      id:
+        type: integer
+        description: "댓글 ID"
+      post_id:
+        type: integer
+        description: "게시글 ID (외래키)"
+      user_id:
+        type: integer
+        description: "작성자 ID (외래키)"
+      content:
+        type: text
+        description: "댓글 내용"
+      created_at:
+        type: datetime
+        description: "작성 날짜"
+
+  SiteSettings:
+    description: 사이트 전역 설정
+    fields:
+      id:
+        type: integer
+        description: "설정 ID (항상 1)"
+      site_name:
+        type: string
+        description: "사이트명"
+      logo_url:
+        type: string
+        nullable: true
+        description: "로고 이미지 URL"
+      primary_color:
+        type: string
+        format: hex color
+        default: "#3B82F6"
+        description: "주색"
+      secondary_color:
+        type: string
+        format: hex color
+        default: "#6B7280"
+        description: "보조색"
+      background_color:
+        type: string
+        format: hex color
+        default: "#FFFFFF"
+        description: "배경색"
+      gtm_code:
+        type: string
+        nullable: true
+        description: "Google Tag Manager ID (e.g., GTM-XXXXXX)"
+      google_client_id:
+        type: string
+        nullable: true
+        description: "Google OAuth Client ID (암호화됨)"
+      google_client_secret:
+        type: string
+        nullable: true
+        description: "Google OAuth Client Secret (암호화됨)"
+      kakao_api_key:
+        type: string
+        nullable: true
+        description: "Kakao API Key (암호화됨)"
+      naver_client_id:
+        type: string
+        nullable: true
+        description: "Naver OAuth Client ID (암호화됨)"
+      updated_at:
+        type: datetime
+        description: "설정 수정 날짜"
+
+  MediaAsset:
+    description: 업로드된 미디어 파일
+    fields:
+      id:
+        type: integer
+        description: "미디어 ID"
+      file_path:
+        type: string
+        description: "파일 경로 (S3 or local)"
+      file_type:
+        type: string
+        description: "파일 타입 (image/jpeg, image/png 등)"
+      file_size:
+        type: integer
+        description: "파일 크기 (바이트)"
+      uploaded_by:
+        type: integer
+        description: "업로드 사용자 ID (외래키)"
+      created_at:
+        type: datetime
+        description: "업로드 날짜"
+
+validation_rules:
+  Email:
+    pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    max_length: 255
+
+  Username:
+    min_length: 2
+    max_length: 50
+    pattern: /^[a-zA-Z0-9_-]+$/
+
+  Password:
+    min_length: 8
+    must_contain:
+      - uppercase: 최소 1개
+      - lowercase: 최소 1개
+      - number: 최소 1개
+      - special: 최소 1개 (!@#$%^&* 등)
+
+  Slug:
+    pattern: /^[a-z0-9-]+$/
+    max_length: 100
+
+  HexColor:
+    pattern: /^#[0-9A-Fa-f]{6}$/
+
+  GTMId:
+    pattern: /^GTM-[A-Z0-9]+$/
+
+  FileSize:
+    logo: "max 5MB"
+    media: "max 50MB"
+
+  FileType:
+    logo: [image/jpeg, image/png, image/webp, image/svg+xml]
+    media: [image/jpeg, image/png, image/webp, image/gif]

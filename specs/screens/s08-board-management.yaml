@@ -1,0 +1,218 @@
+version: "2.0"
+screen_id: S08
+name: 게시판 관리
+generated: "2026-03-27"
+
+metadata:
+  route: /admin/boards
+  type: admin
+  layout: sidebar-main
+  auth_required: true
+  role_required: admin
+  description: 게시판 생성/수정, 권한 설정
+
+data_requirements:
+  boards:
+    resource: boards
+    pagination:
+      per_page: 20
+      default_page: 1
+    order_by: created_at desc
+    fields: [id, name, board_type, read_permission, write_permission, created_at]
+  post_stats:
+    computed:
+      - post_count: "SELECT COUNT(*) FROM posts WHERE board_id = ?"
+      per_board
+
+components:
+  - name: AdminNav
+    type: sidebar
+    reuse: S03.AdminNav
+
+  - name: PageHeader
+    type: header
+    description: 화면 헤더
+    title: "게시판 관리"
+    subtitle: "총 {{boards.meta.total_count}}개"
+    actions:
+      - create_button: "+ 새 게시판"
+
+  - name: BoardListTable
+    type: table
+    description: 게시판 목록 테이블
+    columns:
+      - name: { label: "게시판명", width: "20%" }
+      - board_type: { label: "타입", width: "12%" }
+      - read_permission: { label: "읽기 권한", width: "15%" }
+      - write_permission: { label: "쓰기 권한", width: "15%" }
+      - post_count: { label: "게시글", width: "10%", align: "center" }
+      - created_at: { label: "생성일", width: "12%", format: "yyyy-MM-dd" }
+      - actions: { label: "작업", width: "16%" }
+    row_data_computed:
+      - post_count: "SELECT COUNT(*) FROM posts WHERE board_id = ?"
+    row_actions:
+      - view_posts_button: "게시글 보기 → /admin/boards/{id}/posts"
+      - edit_button: "수정 → BoardFormModal"
+      - delete_button: "삭제 → ConfirmDeleteModal"
+
+  - name: PermissionBadge
+    type: badge
+    description: 권한 뱃지
+    variants:
+      - public: { color: green, text: "공개" }
+      - user: { color: blue, text: "회원만" }
+      - admin_only: { color: red, text: "관리자만" }
+
+  - name: BoardTypeBadge
+    type: badge
+    description: 게시판 타입 뱃지
+    variants:
+      - general: { color: gray, text: "일반" }
+      - gallery: { color: purple, text: "갤러리" }
+
+  - name: CreateBoardButton
+    type: button
+    description: 새 게시판 버튼
+    text: "+ 새 게시판"
+    on_click: show BoardFormModal (create mode)
+
+  - name: BoardFormModal
+    type: modal
+    description: 게시판 생성/수정 모달
+    modes:
+      - create:
+          title: "새 게시판 생성"
+      - edit:
+          title: "게시판 수정"
+    form_fields:
+      - name:
+          type: text
+          label: "게시판명"
+          validation: required, max 100
+      - board_type:
+          type: dropdown
+          label: "타입"
+          options: [general, gallery]
+          default: general
+          disabled_on_edit: true (수정 시 변경 불가)
+      - read_permission:
+          type: dropdown
+          label: "읽기 권한"
+          options: [public, user, admin_only]
+          default: public
+      - write_permission:
+          type: dropdown
+          label: "쓰기 권한"
+          options: [user, admin_only]
+          default: user
+    help_text: "타입은 생성 후 변경할 수 없습니다"
+    actions:
+      - cancel_button: "취소"
+      - submit_button: "생성" | "수정"
+
+  - name: ConfirmDeleteModal
+    type: modal
+    description: 게시판 삭제 확인
+    message: "게시판 '{{board.name}}'을(를) 삭제하시겠습니까?"
+    warning_text: "이 게시판의 모든 게시글({{post_count}}개)도 함께 삭제됩니다. 이 작업은 되돌릴 수 없습니다."
+    post_count_warning: 게시글이 많으면 확인 강조
+    actions:
+      - cancel_button: "취소"
+      - delete_button: "삭제 (red)"
+
+  - name: Toast
+    type: notification
+    display: bottom-right
+    auto_close: 4s
+
+  - name: Pagination
+    type: pagination
+    reuse: S04.Pagination
+
+events:
+  createBoard:
+    trigger: "+ 새 게시판" 버튼 클릭
+    action: show BoardFormModal in create mode
+
+  submitCreateBoard:
+    trigger: BoardFormModal submit (create mode)
+    action: POST /api/boards
+    payload: { name, board_type, read_permission, write_permission }
+    success_action: close modal, refresh table, show success toast
+    error_action: show validation errors in modal
+
+  editBoard:
+    trigger: "수정" 버튼 클릭
+    action: load board data, show BoardFormModal in edit mode
+
+  submitEditBoard:
+    trigger: BoardFormModal submit (edit mode)
+    action: PATCH /api/boards/{id}
+    payload: { name, read_permission, write_permission } (board_type 제외)
+    success_action: close modal, refresh table, show success toast
+    error_action: show validation errors in modal
+
+  deleteBoard:
+    trigger: "삭제" 버튼 클릭
+    action: show ConfirmDeleteModal with post_count
+
+  confirmDelete:
+    trigger: ConfirmDeleteModal confirm
+    action: DELETE /api/boards/{id}
+    cascade: delete all posts and comments in board
+    success_action: close modal, refresh table, show success toast
+    error_action: show error toast
+
+  viewPosts:
+    trigger: "게시글 보기" 버튼 클릭
+    action: navigate to /admin/boards/{id}/posts
+
+  changePage:
+    trigger: pagination click
+    action: fetch boards for page number
+
+tests:
+  - name: 게시판 목록 조회
+    given: /admin/boards 접속
+    when: 페이지 로드
+    then: 게시판 목록 20개 표시
+
+  - name: 게시판 생성
+    given: "+ 새 게시판" 클릭
+    when: 모달에서 정보 입력 후 생성 클릭
+    then: 게시판 생성, 목록에 추가, 성공 토스트
+
+  - name: 권한 설정 저장
+    given: create modal에서 읽기/쓰기 권한 설정
+    when: 생성 버튼 클릭
+    then: 권한이 정확히 저장되고 목록에 반영
+
+  - name: 게시판 수정
+    given: 기존 게시판 "수정" 버튼 클릭
+    when: 이름 및 권한 변경 후 수정 클릭
+    then: 변경사항 저장, 목록 업데이트
+
+  - name: 게시판 타입 변경 불가
+    given: 편집 모달의 board_type 드롭다운
+    when: 모달이 edit mode일 때
+    then: board_type 드롭다운 비활성화
+
+  - name: 게시판 삭제 확인
+    given: 게시글 50개가 있는 게시판 삭제 버튼 클릭
+    when: ConfirmDeleteModal 표시
+    then: 경고 메시지에 "50개 게시글도 삭제됨" 표시
+
+  - name: 게시판 삭제 실행
+    given: ConfirmDeleteModal에서 삭제 확인
+    when: API 응답 200
+    then: 게시판과 모든 게시글/댓글 삭제, 목록 업데이트
+
+  - name: 게시글 보기 네비게이션
+    given: 게시판의 "게시글 보기" 버튼 클릭
+    when: 클릭 완료
+    then: /admin/boards/{id}/posts 페이지 이동
+
+performance:
+  table_load_time: 1.5s
+  create_api_time: 800ms
+  delete_api_time: 1s (게시글 많을 경우 더 걸릴 수 있음)

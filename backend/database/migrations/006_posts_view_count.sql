@@ -1,0 +1,3 @@
+-- 게시글 조회수 컬럼 추가
+ALTER TABLE posts
+  ADD COLUMN IF NOT EXISTS view_count INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '게시글 조회수';

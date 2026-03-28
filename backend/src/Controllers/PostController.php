@@ -1,0 +1,162 @@
+<?php
+
+namespace App\Controllers;
+
+use App\Models\Board;
+use App\Models\Post;
+use App\Models\PostAttachment;
+use App\Middleware\AuthMiddleware;
+use App\Utils\ResponseHelper;
+
+class PostController {
+  // GET /api/boards/{id}/posts — 게시글 목록
+  public function list(string $boardId): void {
+    $payload = null;
+    $token = \App\Utils\JwtHandler::extractFromHeader();
+    if ($token) {
+      try { $payload = \App\Utils\JwtHandler::verify($token); } catch (\Exception) {}
+    }
+
+    $board = Board::findById((int) $boardId);
+    if (!$board) ResponseHelper::error('게시판을 찾을 수 없습니다.', 404);
+
+    // 읽기 권한 체크
+    if ($board['read_permission'] === 'admin_only') {
+      if (!$payload || $payload->role !== 'admin') ResponseHelper::error('접근 권한이 없습니다.', 403);
+    } elseif ($board['read_permission'] === 'user') {
+      if (!$payload) ResponseHelper::error('로그인이 필요합니다.', 401);
+    }
+
+    $page = max(1, (int) ($_GET['page'] ?? 1));
+    $limit = min(100, max(1, (int) ($_GET['limit'] ?? 20)));
+    $search = trim($_GET['search'] ?? '');
+    $sort = in_array($_GET['sort'] ?? '', ['latest', 'views', 'comments']) ? $_GET['sort'] : 'latest';
+    $result = Post::findByBoard((int) $boardId, $page, $limit, $search, $sort);
+    ResponseHelper::paginated($result['items'], $result['total'], $page, $limit);
+  }
+
+  // GET /api/posts/{id} — 게시글 상세
+  public function show(string $id): void {
+    $post = Post::findById((int) $id);
+    if (!$post) ResponseHelper::error('게시글을 찾을 수 없습니다.', 404);
+
+    $board = Board::findById((int) $post['board_id']);
+    $payload = null;
+    $token = \App\Utils\JwtHandler::extractFromHeader();
+    if ($token) {
+      try { $payload = \App\Utils\JwtHandler::verify($token); } catch (\Exception) {}
+    }
+
+    if ($board['read_permission'] === 'admin_only' && (!$payload || $payload->role !== 'admin')) {
+      ResponseHelper::error('접근 권한이 없습니다.', 403);
+    }
+    if ($board['read_permission'] === 'user' && !$payload) {
+      ResponseHelper::error('로그인이 필요합니다.', 401);
+    }
+
+    // 조회수 증가 후 최신 데이터 반환
+    Post::incrementViewCount((int) $id);
+    $post = Post::findById((int) $id);
+
+    // 좋아요 정보 병합
+    $likeStatus = Post::getLikeStatus((int) $id, $payload ? (int) $payload->sub : null);
+    $post['like_count'] = $likeStatus['like_count'];
+    $post['liked']      = $likeStatus['liked'];
+
+    // 이전/다음 게시글 정보 병합
+    $adjacent = Post::getAdjacentPosts((int) $id, (int) $post['board_id']);
+    $post['prev_post'] = $adjacent['prev'];
+    $post['next_post'] = $adjacent['next'];
+
+    // 첨부파일 목록 포함
+    $post['attachments'] = PostAttachment::findByPost((int) $id);
+
+    ResponseHelper::success($post);
+  }
+
+  // POST /api/boards/{id}/posts — 게시글 작성
+  public function create(string $boardId): void {
+    $payload = AuthMiddleware::require();
+
+    $board = Board::findById((int) $boardId);
+    if (!$board) ResponseHelper::error('게시판을 찾을 수 없습니다.', 404);
+
+    // 쓰기 권한 체크
+    if ($board['write_permission'] === 'admin_only' && $payload->role !== 'admin') {
+      ResponseHelper::error('작성 권한이 없습니다.', 403);
+    }
+
+    $data = json_decode(file_get_contents('php://input'), true);
+    $title = trim($data['title'] ?? '');
+    $content = trim($data['content'] ?? '');
+
+    if (empty($title)) ResponseHelper::error('제목을 입력해주세요.', 422);
+    if (empty($content)) ResponseHelper::error('내용을 입력해주세요.', 422);
+
+    $thumbnailUrl = trim($data['thumbnail_url'] ?? '') ?: null;
+
+    $post = Post::create((int) $boardId, (int) $payload->sub, $title, $content, $thumbnailUrl);
+    ResponseHelper::success($post, 201);
+  }
+
+  // PATCH /api/posts/{id} — 게시글 수정
+  public function update(string $id): void {
+    $payload = AuthMiddleware::require();
+
+    $post = Post::findById((int) $id);
+    if (!$post) ResponseHelper::error('게시글을 찾을 수 없습니다.', 404);
+
+    // 작성자 또는 admin만 수정 가능
+    if ((int) $post['author_id'] !== (int) $payload->sub && $payload->role !== 'admin') {
+      ResponseHelper::error('수정 권한이 없습니다.', 403);
+    }
+
+    $data = json_decode(file_get_contents('php://input'), true);
+    $title = trim($data['title'] ?? '');
+    $content = trim($data['content'] ?? '');
+
+    if (empty($title)) ResponseHelper::error('제목을 입력해주세요.', 422);
+    if (empty($content)) ResponseHelper::error('내용을 입력해주세요.', 422);
+
+    $thumbnailUrl = array_key_exists('thumbnail_url', $data) ? ($data['thumbnail_url'] ?: null) : false;
+
+    ResponseHelper::success(Post::update((int) $id, $title, $content, $thumbnailUrl));
+  }
+
+  // POST /api/posts/{id}/like — 좋아요 토글 (로그인 필요)
+  public function like(string $id): void {
+    $payload = AuthMiddleware::require();
+
+    $post = Post::findById((int) $id);
+    if (!$post) ResponseHelper::error('게시글을 찾을 수 없습니다.', 404);
+
+    $result = Post::toggleLike((int) $id, (int) $payload->sub);
+    ResponseHelper::success($result);
+  }
+
+  // PATCH /api/posts/{id}/notice — 공지 토글 (admin만)
+  public function toggleNotice(string $id): void {
+    $payload = AuthMiddleware::requireAdmin();
+
+    $post = Post::findById((int) $id);
+    if (!$post) ResponseHelper::error('게시글을 찾을 수 없습니다.', 404);
+
+    ResponseHelper::success(Post::toggleNotice((int) $id));
+  }
+
+  // DELETE /api/posts/{id} — 게시글 삭제
+  public function delete(string $id): void {
+    $payload = AuthMiddleware::require();
+
+    $post = Post::findById((int) $id);
+    if (!$post) ResponseHelper::error('게시글을 찾을 수 없습니다.', 404);
+
+    // 작성자 또는 admin만 삭제 가능
+    if ((int) $post['author_id'] !== (int) $payload->sub && $payload->role !== 'admin') {
+      ResponseHelper::error('삭제 권한이 없습니다.', 403);
+    }
+
+    Post::delete((int) $id);
+    ResponseHelper::success(['message' => '게시글이 삭제되었습니다.']);
+  }
+}
