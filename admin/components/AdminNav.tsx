@@ -27,6 +27,7 @@ import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
 import { SiteSettings } from '@/types';
+import { NotificationBell } from '@/components/NotificationBell';
 
 const navItems = [
   { href: '/admin', label: '대시보드', icon: LayoutDashboard },
@@ -64,9 +65,10 @@ export function AdminNav() {
 
   const NavContent = () => (
     <>
-      {/* 로고 */}
-      <div className="flex items-center gap-2 px-4 py-5 border-b">
+      {/* 로고 + 알림 */}
+      <div className="flex items-center justify-between px-4 py-5 border-b">
         <span className="font-bold text-lg truncate">{siteName ?? '홈페이지 빌더'}</span>
+        {user && <NotificationBell />}
       </div>
 
       {/* 사용자 정보 */}
@@ -133,9 +135,12 @@ export function AdminNav() {
       {/* 모바일 헤더 */}
       <div className="md:hidden flex items-center justify-between px-4 py-3 border-b bg-background sticky top-0 z-40">
         <span className="font-bold truncate">{siteName ?? '홈페이지 빌더'}</span>
-        <Button variant="ghost" size="icon" onClick={() => setIsMobileOpen(!isMobileOpen)}>
-          {isMobileOpen ? <X size={20} /> : <Menu size={20} />}
-        </Button>
+        <div className="flex items-center gap-1">
+          {user && <NotificationBell />}
+          <Button variant="ghost" size="icon" onClick={() => setIsMobileOpen(!isMobileOpen)}>
+            {isMobileOpen ? <X size={20} /> : <Menu size={20} />}
+          </Button>
+        </div>
       </div>
 
       {/* 모바일 드로어 */}
