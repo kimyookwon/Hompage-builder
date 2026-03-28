@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useRef } from 'react';
+import { useSearchSuggest } from '@/hooks/useSearchSuggest';
 import { useAuthStore } from '@/stores/authStore';
 import NotificationBell from './NotificationBell';
 
@@ -22,15 +23,25 @@ export default function PublicHeader({ siteName, logoUrl, primaryColor = '#2563e
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchInput, setSearchInput] = useState('');
+  const [showSuggest, setShowSuggest] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const suggestions = useSearchSuggest(searchInput);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const q = searchInput.trim();
     if (!q) return;
     setSearchOpen(false);
+    setShowSuggest(false);
     setSearchInput('');
     router.push(`/search?q=${encodeURIComponent(q)}`);
+  };
+
+  const handleSuggestSelect = (title: string) => {
+    setSearchOpen(false);
+    setShowSuggest(false);
+    setSearchInput('');
+    router.push(`/search?q=${encodeURIComponent(title)}`);
   };
 
   const handleSearchOpen = () => {
@@ -84,15 +95,39 @@ export default function PublicHeader({ siteName, logoUrl, primaryColor = '#2563e
         <div className="hidden sm:flex items-center">
           {searchOpen ? (
             <form onSubmit={handleSearchSubmit} className="flex items-center gap-1">
-              <input
-                ref={searchInputRef}
-                type="search"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Escape' && setSearchOpen(false)}
-                placeholder="검색..."
-                className="w-44 px-3 py-1.5 text-xs border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-400 transition-all"
-              />
+              <div className="relative">
+                <input
+                  ref={searchInputRef}
+                  type="search"
+                  value={searchInput}
+                  onChange={(e) => { setSearchInput(e.target.value); setShowSuggest(true); }}
+                  onFocus={() => setShowSuggest(true)}
+                  onBlur={() => setTimeout(() => setShowSuggest(false), 150)}
+                  onKeyDown={(e) => e.key === 'Escape' && setSearchOpen(false)}
+                  placeholder="검색..."
+                  className="w-44 px-3 py-1.5 text-xs border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-400 transition-all"
+                  autoComplete="off"
+                />
+                {/* 자동완성 드롭다운 */}
+                {showSuggest && suggestions.length > 0 && (
+                  <ul className="absolute left-0 top-full mt-1 z-50 w-64 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+                    {suggestions.map((title, i) => (
+                      <li key={i}>
+                        <button
+                          type="button"
+                          onMouseDown={() => handleSuggestSelect(title)}
+                          className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors truncate flex items-center gap-1.5"
+                        >
+                          <svg className="w-3 h-3 shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M16.65 16.65A7.5 7.5 0 1116.65 2a7.5 7.5 0 010 14.65z" />
+                          </svg>
+                          <span className="truncate">{title}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
               <button
                 type="submit"
                 className="p-1.5 text-gray-500 hover:text-blue-600 transition-colors"

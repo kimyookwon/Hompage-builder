@@ -27,6 +27,7 @@ $router->get('/api/health', function (): void {
 });
 
 // ─── 검색 ───────────────────────────────────────────────
+$router->get('/api/search/suggest', [\App\Controllers\SearchController::class, 'suggest']);
 $router->get('/api/search', [\App\Controllers\SearchController::class, 'index']);
 
 // ─── 인증 ───────────────────────────────────────────────

@@ -119,6 +119,56 @@ class SearchController {
     }
   }
 
+  // GET /api/search/suggest?q= — 검색어 자동완성 (제목 최대 5개)
+  public function suggest(): void {
+    $q = trim($_GET['q'] ?? '');
+    if (mb_strlen($q) < 1) {
+      ResponseHelper::success([]);
+      return;
+    }
+
+    try {
+      $pdo = Database::getInstance();
+      $rows = [];
+
+      // 2자 이상이면 FULLTEXT 우선 시도
+      if (mb_strlen($q) >= 2) {
+        $ftQuery = '"' . str_replace('"', '', $q) . '"';
+        $stmt = $pdo->prepare(
+          "SELECT DISTINCT p.title
+           FROM posts p
+           JOIN boards b ON b.id = p.board_id
+           WHERE b.read_permission IN ('public', 'user')
+             AND MATCH(p.title, p.content) AGAINST (? IN BOOLEAN MODE)
+           ORDER BY MATCH(p.title, p.content) AGAINST (? IN BOOLEAN MODE) DESC, p.created_at DESC
+           LIMIT 5"
+        );
+        $stmt->execute([$ftQuery, $ftQuery]);
+        $rows = $stmt->fetchAll(\PDO::FETCH_COLUMN);
+      }
+
+      // FULLTEXT 결과 없거나 1자일 때 LIKE 폴백
+      if (empty($rows)) {
+        $like = '%' . str_replace(['%', '_'], ['\%', '\_'], $q) . '%';
+        $stmt = $pdo->prepare(
+          "SELECT DISTINCT p.title
+           FROM posts p
+           JOIN boards b ON b.id = p.board_id
+           WHERE b.read_permission IN ('public', 'user')
+             AND p.title LIKE ?
+           ORDER BY p.created_at DESC
+           LIMIT 5"
+        );
+        $stmt->execute([$like]);
+        $rows = $stmt->fetchAll(\PDO::FETCH_COLUMN);
+      }
+
+      ResponseHelper::success($rows);
+    } catch (\Throwable) {
+      ResponseHelper::success([]);
+    }
+  }
+
   /** 본문에서 검색어 주변 텍스트 추출 */
   private static function makeExcerpt(string $text, string $keyword, int $radius): string {
     // 마크다운 이미지/URL 제거
