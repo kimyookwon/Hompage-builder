@@ -8,6 +8,7 @@ import { api } from '@/lib/api';
 import { formatDateTime } from '@/lib/date';
 import { PostContent } from '@/lib/post-content';
 import { MarkdownEditor } from '@/components/common/MarkdownEditor';
+import { TagInput } from '@/components/common/TagInput';
 import { useAuthStore } from '@/stores/authStore';
 import { Post, Comment, Board, AdjacentPost, PostAttachment } from '@/types';
 import AttachmentUploader from '@/components/common/AttachmentUploader';
@@ -58,6 +59,7 @@ export default function PublicPostPage() {
   const [editTitle, setEditTitle] = useState('');
   const [editContent, setEditContent] = useState('');
   const [editThumbnail, setEditThumbnail] = useState('');
+  const [editTags, setEditTags] = useState<string[]>([]);
   const [editErrors, setEditErrors] = useState<{ title?: string; content?: string }>({});
   const [savingEdit, setSavingEdit] = useState(false);
   const [uploadingThumb, setUploadingThumb] = useState(false);
@@ -122,6 +124,7 @@ export default function PublicPostPage() {
     setEditTitle(post.title);
     setEditContent(post.content);
     setEditThumbnail(post.thumbnailUrl ?? '');
+    setEditTags(post.tags?.map((t) => t.name) ?? []);
     setEditErrors({});
     setIsEditing(true);
   };
@@ -157,9 +160,10 @@ export default function PublicPostPage() {
 
     setSavingEdit(true);
     try {
-      const body: Record<string, string | null> = {
+      const body: Record<string, string | string[] | null> = {
         title: editTitle.trim(),
         content: editContent.trim(),
+        tags: editTags,
       };
       if (board?.type === 'gallery') body.thumbnail_url = editThumbnail || null;
       const res = await api.patch<Post>(`/posts/${postId}`, body);
@@ -387,6 +391,11 @@ export default function PublicPostPage() {
                 error={editErrors.content}
               />
             </div>
+            {/* 태그 수정 */}
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-gray-700">태그</p>
+              <TagInput value={editTags} onChange={setEditTags} placeholder="태그 입력 후 Enter (최대 10개)" />
+            </div>
             <div className="flex justify-end gap-2">
               <button
                 onClick={handleEditCancel}
@@ -436,6 +445,21 @@ export default function PublicPostPage() {
                 )}
               </div>
             </div>
+
+            {/* 태그 목록 */}
+            {post.tags && post.tags.length > 0 && (
+              <div className="px-6 py-2 border-b flex flex-wrap gap-1.5">
+                {post.tags.map((tag) => (
+                  <Link
+                    key={tag.id}
+                    href={`/b/${boardId}?tag=${encodeURIComponent(tag.name)}`}
+                    className="inline-flex items-center rounded-full bg-blue-50 text-blue-600 px-2.5 py-0.5 text-xs font-medium hover:bg-blue-100 transition-colors"
+                  >
+                    #{tag.name}
+                  </Link>
+                ))}
+              </div>
+            )}
 
             {/* 갤러리 게시판 썸네일 */}
             {board?.type === 'gallery' && post.thumbnailUrl && (

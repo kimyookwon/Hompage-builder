@@ -98,6 +98,11 @@ export interface AdjacentPost {
 }
 
 // 게시글 타입
+export interface PostTag {
+  id: number;
+  name: string;
+}
+
 export interface Post {
   id: number;
   boardId: number;
@@ -115,6 +120,7 @@ export interface Post {
   prevPost?: AdjacentPost | null;
   nextPost?: AdjacentPost | null;
   attachments?: PostAttachment[];
+  tags?: PostTag[];
   createdAt: string;
   updatedAt: string;
 }

@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import { MarkdownEditor } from '@/components/common/MarkdownEditor';
+import { TagInput } from '@/components/common/TagInput';
 import { Board, Post } from '@/types';
 
 interface MediaAsset {
@@ -23,6 +24,7 @@ export default function NewPostPage() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [thumbnailUrl, setThumbnailUrl] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ title?: string; content?: string }>({});
@@ -76,9 +78,11 @@ export default function NewPostPage() {
 
     setSubmitting(true);
     try {
-      const body: Record<string, string> = { title, content };
-      if (thumbnailUrl) body.thumbnail_url = thumbnailUrl;
-      const res = await api.post<Post>(`/boards/${boardId}/posts`, body);
+      const res = await api.post<Post>(`/boards/${boardId}/posts`, {
+        title, content,
+        ...(thumbnailUrl && { thumbnail_url: thumbnailUrl }),
+        tags,
+      });
       router.push(`/b/${boardId}/${res.data.id}`);
     } catch {
       alert('게시글 작성에 실패했습니다.');
@@ -166,6 +170,13 @@ export default function NewPostPage() {
             />
           </div>
         )}
+
+        {/* 태그 */}
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-gray-700">태그</p>
+          <TagInput value={tags} onChange={setTags} placeholder="태그 입력 후 Enter (최대 10개)" />
+          <p className="text-xs text-gray-400">Enter 또는 쉼표로 추가 · Backspace로 삭제</p>
+        </div>
 
         {/* 내용 */}
         <div>

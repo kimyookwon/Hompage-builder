@@ -88,6 +88,16 @@ $router->patch('/api/boards/{id}', [\App\Controllers\BoardController::class, 'up
 $router->patch('/api/boards/{id}/move', [\App\Controllers\BoardController::class, 'move']);
 $router->delete('/api/boards/{id}', [\App\Controllers\BoardController::class, 'delete']);
 
+// ─── 태그 ───────────────────────────────────────────────
+$router->get('/api/boards/{id}/tags', function (string $boardId): void {
+  $tags = \App\Models\Tag::popular((int) $boardId, 30);
+  \App\Utils\ResponseHelper::success($tags);
+});
+$router->get('/api/tags/popular', function (): void {
+  $tags = \App\Models\Tag::popular(null, 30);
+  \App\Utils\ResponseHelper::success($tags);
+});
+
 // ─── 게시글 ─────────────────────────────────────────────
 $router->get('/api/boards/{id}/posts', [\App\Controllers\PostController::class, 'list']);
 $router->post('/api/boards/{id}/posts', [\App\Controllers\PostController::class, 'create']);

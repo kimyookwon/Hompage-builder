@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { Suspense, useEffect, useState, useCallback, useRef } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { api } from '@/lib/api';
@@ -16,8 +16,17 @@ interface PostsData {
 }
 
 export default function PublicBoardPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center py-20"><div className="h-8 w-8 rounded-full border-4 border-blue-500 border-t-transparent animate-spin" /></div>}>
+      <BoardPageInner />
+    </Suspense>
+  );
+}
+
+function BoardPageInner() {
   const { boardId } = useParams<{ boardId: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const user = useAuthStore((s) => s.user);
   const hasHydrated = useAuthStore((s) => s.hasHydrated);
 
@@ -28,11 +37,19 @@ export default function PublicBoardPage() {
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [sort, setSort] = useState<'latest' | 'views' | 'comments'>('latest');
+  const [tagFilter, setTagFilter] = useState<string>(() => searchParams.get('tag') ?? '');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
 
-  const fetchData = useCallback(async (p: number, q: string, s: 'latest' | 'views' | 'comments') => {
+  // URL ?tag= 파라미터 변경 감지
+  useEffect(() => {
+    const t = searchParams.get('tag') ?? '';
+    setTagFilter(t);
+    setPage(1);
+  }, [searchParams]);
+
+  const fetchData = useCallback(async (p: number, q: string, s: 'latest' | 'views' | 'comments', tag: string) => {
     abortRef.current?.abort();
     abortRef.current = new AbortController();
 
@@ -41,6 +58,7 @@ export default function PublicBoardPage() {
     try {
       const params = new URLSearchParams({ page: String(p), limit: '20', sort: s });
       if (q) params.set('search', q);
+      if (tag) params.set('tag', tag);
 
       const [boardRes, postsRes] = await Promise.all([
         api.get<Board>(`/boards/${boardId}`),
@@ -61,8 +79,8 @@ export default function PublicBoardPage() {
 
   useEffect(() => {
     if (!hasHydrated) return;
-    fetchData(page, search, sort);
-  }, [hasHydrated, fetchData, page, search, sort]);  // eslint-disable-line react-hooks/exhaustive-deps
+    fetchData(page, search, sort, tagFilter);
+  }, [hasHydrated, fetchData, page, search, sort, tagFilter]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,7 +141,11 @@ export default function PublicBoardPage() {
             <p className="text-sm text-gray-500 mt-0.5">{board.description}</p>
           )}
           <p className="text-xs text-gray-400 mt-0.5">
-            {search ? `"${search}" 검색 결과 ${pagination?.total ?? 0}개` : `총 ${pagination?.total ?? 0}개`}
+            {tagFilter
+              ? `#${tagFilter} 태그 ${pagination?.total ?? 0}개`
+              : search
+                ? `"${search}" 검색 결과 ${pagination?.total ?? 0}개`
+                : `총 ${pagination?.total ?? 0}개`}
           </p>
         </div>
         {board?.writePermission !== 'admin_only' && (
@@ -160,6 +182,24 @@ export default function PublicBoardPage() {
           ))}
         </div>
       </div>
+      {/* 태그 필터 표시 */}
+      {tagFilter && (
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-xs text-gray-500">태그 필터:</span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 text-blue-600 px-2.5 py-0.5 text-xs font-medium">
+            #{tagFilter}
+            <button
+              type="button"
+              onClick={() => router.push(`/b/${boardId}`)}
+              className="hover:text-blue-800 ml-0.5"
+              aria-label="태그 필터 제거"
+            >
+              ✕
+            </button>
+          </span>
+        </div>
+      )}
+
       <form onSubmit={handleSearch} className="flex gap-2 mb-5">
         <div className="relative flex-1">
           <input
@@ -254,7 +294,21 @@ export default function PublicBoardPage() {
                     <span className="ml-0.5 text-xs text-blue-500 font-normal">[{post.commentCount}]</span>
                   )}
                 </p>
-                <p className="text-xs text-gray-400 mt-0.5">{post.authorName}</p>
+                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                  <span className="text-xs text-gray-400">{post.authorName}</span>
+                  {post.tags && post.tags.length > 0 && (
+                    <>
+                      {post.tags.slice(0, 3).map((tag) => (
+                        <span
+                          key={tag.id}
+                          className="text-[10px] text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded-full"
+                        >
+                          #{tag.name}
+                        </span>
+                      ))}
+                    </>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-3 shrink-0 text-xs text-gray-400">
                 {(post.likeCount ?? 0) > 0 && (

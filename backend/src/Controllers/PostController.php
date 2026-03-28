@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Models\Board;
 use App\Models\Post;
 use App\Models\PostAttachment;
+use App\Models\Tag;
 use App\Middleware\AuthMiddleware;
 use App\Utils\ResponseHelper;
 
@@ -27,11 +28,18 @@ class PostController {
       if (!$payload) ResponseHelper::error('로그인이 필요합니다.', 401);
     }
 
-    $page = max(1, (int) ($_GET['page'] ?? 1));
+    $page  = max(1, (int) ($_GET['page'] ?? 1));
     $limit = min(100, max(1, (int) ($_GET['limit'] ?? 20)));
     $search = trim($_GET['search'] ?? '');
-    $sort = in_array($_GET['sort'] ?? '', ['latest', 'views', 'comments']) ? $_GET['sort'] : 'latest';
-    $result = Post::findByBoard((int) $boardId, $page, $limit, $search, $sort);
+    $sort  = in_array($_GET['sort'] ?? '', ['latest', 'views', 'comments']) ? $_GET['sort'] : 'latest';
+    $tag   = trim($_GET['tag'] ?? '');
+
+    // 태그 필터
+    if ($tag !== '') {
+      $result = Tag::findPostsByTag($tag, (int) $boardId, $page, $limit);
+    } else {
+      $result = Post::findByBoard((int) $boardId, $page, $limit, $search, $sort);
+    }
     ResponseHelper::paginated($result['items'], $result['total'], $page, $limit);
   }
 
@@ -68,8 +76,9 @@ class PostController {
     $post['prev_post'] = $adjacent['prev'];
     $post['next_post'] = $adjacent['next'];
 
-    // 첨부파일 목록 포함
+    // 첨부파일 + 태그 목록 포함
     $post['attachments'] = PostAttachment::findByPost((int) $id);
+    $post['tags']        = Tag::findByPost((int) $id);
 
     ResponseHelper::success($post);
   }
@@ -94,8 +103,13 @@ class PostController {
     if (empty($content)) ResponseHelper::error('내용을 입력해주세요.', 422);
 
     $thumbnailUrl = trim($data['thumbnail_url'] ?? '') ?: null;
+    $tagNames     = is_array($data['tags'] ?? null) ? $data['tags'] : [];
 
-    $post = Post::create((int) $boardId, (int) $payload->sub, $title, $content, $thumbnailUrl);
+    $post   = Post::create((int) $boardId, (int) $payload->sub, $title, $content, $thumbnailUrl);
+    $tagIds = Tag::upsertMany($tagNames);
+    Tag::syncPost((int) $post['id'], $tagIds);
+    $post['tags'] = Tag::findByPost((int) $post['id']);
+
     ResponseHelper::success($post, 201);
   }
 
@@ -119,8 +133,18 @@ class PostController {
     if (empty($content)) ResponseHelper::error('내용을 입력해주세요.', 422);
 
     $thumbnailUrl = array_key_exists('thumbnail_url', $data) ? ($data['thumbnail_url'] ?: null) : false;
+    $tagNames     = is_array($data['tags'] ?? null) ? $data['tags'] : null;
 
-    ResponseHelper::success(Post::update((int) $id, $title, $content, $thumbnailUrl));
+    $updated = Post::update((int) $id, $title, $content, $thumbnailUrl);
+
+    // 태그가 전달된 경우에만 업데이트
+    if ($tagNames !== null) {
+      $tagIds = Tag::upsertMany($tagNames);
+      Tag::syncPost((int) $id, $tagIds);
+    }
+    $updated['tags'] = Tag::findByPost((int) $id);
+
+    ResponseHelper::success($updated);
   }
 
   // POST /api/posts/{id}/like — 좋아요 토글 (로그인 필요)
