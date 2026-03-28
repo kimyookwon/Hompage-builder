@@ -6,6 +6,7 @@ use App\Models\Page;
 use App\Models\PageSection;
 use App\Models\SiteSettings;
 use App\Middleware\AuthMiddleware;
+use App\Services\PageCacheService;
 use App\Utils\ResponseHelper;
 
 class PageController {
@@ -85,6 +86,11 @@ class PageController {
     $filtered = array_intersect_key($data, array_flip($allowed));
 
     $updated = Page::update((int) $id, $filtered);
+    // 슬러그가 변경된 경우 이전 슬러그 캐시도 삭제
+    PageCacheService::delete($page['slug']);
+    if (isset($data['slug']) && $data['slug'] !== $page['slug']) {
+      PageCacheService::delete($data['slug']);
+    }
     ResponseHelper::success($updated);
   }
 
@@ -97,6 +103,7 @@ class PageController {
       ResponseHelper::error('페이지를 찾을 수 없습니다.', 404);
     }
 
+    PageCacheService::delete($page['slug']);
     Page::delete((int) $id);
     ResponseHelper::success(['message' => '페이지가 삭제되었습니다.']);
   }
@@ -110,6 +117,7 @@ class PageController {
       ResponseHelper::error('페이지를 찾을 수 없습니다.', 404);
     }
 
+    PageCacheService::delete($page['slug']);
     $updated = Page::togglePublish((int) $id);
     ResponseHelper::success($updated);
   }

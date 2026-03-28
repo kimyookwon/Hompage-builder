@@ -125,3 +125,17 @@ $router->patch('/api/site-settings', [\App\Controllers\SiteSettingsController::c
 // ─── SEO (sitemap / robots) ──────────────────────────────
 $router->get('/sitemap.xml', [\App\Controllers\SeoController::class, 'sitemap']);
 $router->get('/robots.txt', [\App\Controllers\SeoController::class, 'robots']);
+
+// ─── RSS 피드 ────────────────────────────────────────────
+$router->get('/b/{id}/feed.rss', [\App\Controllers\RssController::class, 'boardFeed']);
+
+// ─── 페이지 캐시 관리 ────────────────────────────────────
+$router->delete('/api/admin/cache', function (): void {
+  \App\Middleware\AuthMiddleware::requireAdmin();
+  $count = \App\Services\PageCacheService::flush();
+  \App\Utils\ResponseHelper::success(['flushed' => $count]);
+});
+$router->get('/api/admin/cache/stats', function (): void {
+  \App\Middleware\AuthMiddleware::requireAdmin();
+  \App\Utils\ResponseHelper::success(\App\Services\PageCacheService::stats());
+});

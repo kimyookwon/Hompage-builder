@@ -22,6 +22,7 @@ require BASE_PATH . '/config/database.php';
 use App\Models\Page;
 use App\Models\PageSection;
 use App\Models\SiteSettings;
+use App\Services\PageCacheService;
 
 // 사이트 설정 로드
 $settings = SiteSettings::get() ?? [];
@@ -52,6 +53,13 @@ if (!$page || !$page['is_published']) {
   exit;
 }
 
+// ── 페이지 캐시 확인 ─────────────────────────────────────
+$cached = PageCacheService::get($slug);
+if ($cached !== null) {
+  echo $cached;
+  exit;
+}
+
 // 섹션 로드 및 정렬
 $rawSections = PageSection::findByPage((int) $page['id']);
 $sections = array_map(function (array $s): array {
@@ -65,4 +73,9 @@ usort($sections, static fn($a, $b) => (int) $a['order'] <=> (int) $b['order']);
 
 $pageTitle = $page['title'];
 
+// 출력 버퍼링으로 캐시 저장
+ob_start();
 include BASE_PATH . '/public/views/layout.php';
+$html = ob_get_clean();
+PageCacheService::set($slug, $html);
+echo $html;

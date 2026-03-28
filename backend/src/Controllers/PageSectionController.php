@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Models\Page;
 use App\Models\PageSection;
 use App\Middleware\AuthMiddleware;
+use App\Services\PageCacheService;
 use App\Utils\ResponseHelper;
 
 class PageSectionController {
@@ -49,6 +50,7 @@ class PageSectionController {
     }
 
     $section = PageSection::create((int) $pageId, $type, $format, $content);
+    self::bustPageCache((int) $pageId);
     ResponseHelper::success($section, 201);
   }
 
@@ -63,6 +65,7 @@ class PageSectionController {
 
     $data = json_decode(file_get_contents('php://input'), true);
     $updated = PageSection::update((int) $id, $data);
+    self::bustPageCache((int) $section['page_id']);
     ResponseHelper::success($updated);
   }
 
@@ -75,7 +78,9 @@ class PageSectionController {
       ResponseHelper::error('섹션을 찾을 수 없습니다.', 404);
     }
 
+    $pageId = (int) $section['page_id'];
     PageSection::delete((int) $id);
+    self::bustPageCache($pageId);
     ResponseHelper::success(['message' => '섹션이 삭제되었습니다.']);
   }
 
@@ -95,6 +100,15 @@ class PageSectionController {
     }
 
     PageSection::reorder((int) $pageId, $orderedIds);
+    self::bustPageCache((int) $pageId);
     ResponseHelper::success(PageSection::findByPage((int) $pageId));
+  }
+
+  // 해당 페이지 슬러그 캐시 무효화
+  private static function bustPageCache(int $pageId): void {
+    $page = Page::findById($pageId);
+    if ($page) {
+      PageCacheService::delete($page['slug']);
+    }
   }
 }

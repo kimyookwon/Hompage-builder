@@ -27,6 +27,8 @@ export default function SettingsPage() {
   const [noticeColor, setNoticeColor] = useState('#1d4ed8');
   const [siteUrl, setSiteUrl] = useState('');
   const [robotsTxt, setRobotsTxt] = useState('');
+  const [cacheStats, setCacheStats] = useState<{ count: number; sizeBytes: number } | null>(null);
+  const [flushingCache, setFlushingCache] = useState(false);
   const [publishedPages, setPublishedPages] = useState<Page[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const addToast = useAppStore((s) => s.addToast);
@@ -51,7 +53,24 @@ export default function SettingsPage() {
       setRobotsTxt(s.robotsTxt ?? '');
       setPublishedPages(pagesRes.data.items.filter((p) => p.isPublished));
     }).catch(() => addToast('설정을 불러오지 못했습니다.', 'destructive'));
+
+    api.get<{ count: number; sizeBytes: number }>('/admin/cache/stats')
+      .then((res) => setCacheStats(res.data))
+      .catch(() => {});
   }, [addToast]);
+
+  const handleFlushCache = async () => {
+    setFlushingCache(true);
+    try {
+      const res = await api.delete<{ flushed: number }>('/admin/cache');
+      addToast(`페이지 캐시 ${res.data.flushed}개가 삭제되었습니다.`);
+      setCacheStats({ count: 0, sizeBytes: 0 });
+    } catch {
+      addToast('캐시 삭제에 실패했습니다.', 'destructive');
+    } finally {
+      setFlushingCache(false);
+    }
+  };
 
   const handleLogoChange = (url: string) => {
     setSettings((prev) => prev ? { ...prev, logoUrl: url || null } : prev);
@@ -292,6 +311,37 @@ export default function SettingsPage() {
         <section className="rounded-lg border p-6 space-y-4">
           <h2 className="font-semibold">OAuth 설정</h2>
           <OAuthSettings />
+        </section>
+
+        {/* 페이지 캐시 */}
+        <section className="rounded-lg border p-6 space-y-4">
+          <div>
+            <h2 className="font-semibold">페이지 캐시</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              공개 페이지를 10분간 파일로 캐시합니다. 페이지 수정·발행 시 자동 갱신됩니다.
+            </p>
+          </div>
+          <div className="flex items-center justify-between rounded-md bg-muted/50 border px-4 py-3">
+            <div className="text-sm">
+              {cacheStats ? (
+                <span>
+                  캐시된 페이지{' '}
+                  <strong>{cacheStats.count}</strong>개 ·{' '}
+                  <strong>{(cacheStats.sizeBytes / 1024).toFixed(1)} KB</strong>
+                </span>
+              ) : (
+                <span className="text-muted-foreground">불러오는 중...</span>
+              )}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleFlushCache}
+              disabled={flushingCache || cacheStats?.count === 0}
+            >
+              {flushingCache ? '삭제 중...' : '캐시 비우기'}
+            </Button>
+          </div>
         </section>
 
         {/* 사이트 내보내기/가져오기 */}
