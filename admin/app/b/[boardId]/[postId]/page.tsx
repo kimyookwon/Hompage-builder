@@ -7,6 +7,7 @@ import Image from 'next/image';
 import { api } from '@/lib/api';
 import { formatDateTime } from '@/lib/date';
 import { PostContent } from '@/lib/post-content';
+import { MarkdownEditor } from '@/components/common/MarkdownEditor';
 import { useAuthStore } from '@/stores/authStore';
 import { Post, Comment, Board, AdjacentPost, PostAttachment } from '@/types';
 import AttachmentUploader from '@/components/common/AttachmentUploader';
@@ -61,8 +62,6 @@ export default function PublicPostPage() {
   const [savingEdit, setSavingEdit] = useState(false);
   const [uploadingThumb, setUploadingThumb] = useState(false);
   const thumbInputRef = useRef<HTMLInputElement>(null);
-  const inlineImgRef = useRef<HTMLInputElement>(null);
-  const contentRef = useRef<HTMLTextAreaElement>(null);
 
   const fetchPost = useCallback(async () => {
     try {
@@ -141,29 +140,6 @@ export default function PublicPostPage() {
     }
   };
 
-  const handleInlineImageUpload = async (file: File) => {
-    try {
-      const fd = new FormData();
-      fd.append('file', file);
-      const res = await api.upload<MediaAsset>('/media/upload', fd);
-      const tag = `![이미지](${res.data.file_url})`;
-      const el = contentRef.current;
-      if (el) {
-        const start = el.selectionStart ?? el.value.length;
-        const end = el.selectionEnd ?? el.value.length;
-        const newVal = el.value.slice(0, start) + '\n' + tag + '\n' + el.value.slice(end);
-        setEditContent(newVal);
-        setTimeout(() => {
-          el.selectionStart = el.selectionEnd = start + tag.length + 2;
-          el.focus();
-        }, 0);
-      } else {
-        setEditContent((prev) => prev + '\n' + tag + '\n');
-      }
-    } catch {
-      alert('이미지 업로드에 실패했습니다.');
-    }
-  };
 
   const handleEditCancel = () => {
     setIsEditing(false);
@@ -403,37 +379,13 @@ export default function PublicPostPage() {
             )}
 
             <div>
-              {/* 이미지 삽입 툴바 */}
-              <div className="flex items-center gap-1 mb-1">
-                <button
-                  type="button"
-                  onClick={() => inlineImgRef.current?.click()}
-                  className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 border rounded hover:bg-gray-50 transition-colors"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  이미지 삽입
-                </button>
-                <input
-                  ref={inlineImgRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="hidden"
-                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleInlineImageUpload(f); e.target.value = ''; }}
-                />
-              </div>
-              <textarea
-                ref={contentRef}
+              <MarkdownEditor
                 value={editContent}
-                onChange={(e) => setEditContent(e.target.value)}
-                placeholder="내용"
-                rows={12}
-                className={`w-full px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none ${
-                  editErrors.content ? 'border-red-400' : 'border-gray-300'
-                }`}
+                onChange={setEditContent}
+                placeholder="내용을 입력하세요 (마크다운 지원)"
+                rows={14}
+                error={editErrors.content}
               />
-              {editErrors.content && <p className="text-xs text-red-500 mt-1">{editErrors.content}</p>}
             </div>
             <div className="flex justify-end gap-2">
               <button

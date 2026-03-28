@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
+import { MarkdownEditor } from '@/components/common/MarkdownEditor';
 import { Board, Post } from '@/types';
 
 interface MediaAsset {
@@ -26,8 +27,6 @@ export default function NewPostPage() {
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ title?: string; content?: string }>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const inlineImgRef = useRef<HTMLInputElement>(null);
-  const contentRef = useRef<HTMLTextAreaElement>(null);
 
   // 비로그인 시 로그인 페이지로
   useEffect(() => {
@@ -68,27 +67,6 @@ export default function NewPostPage() {
       alert('이미지 업로드에 실패했습니다.');
     } finally {
       setIsUploading(false);
-    }
-  };
-
-  const handleInlineImageUpload = async (file: File) => {
-    try {
-      const fd = new FormData();
-      fd.append('file', file);
-      const res = await api.upload<MediaAsset>('/media/upload', fd);
-      const tag = `![이미지](${res.data.file_url})`;
-      const el = contentRef.current;
-      if (el) {
-        const start = el.selectionStart ?? el.value.length;
-        const end = el.selectionEnd ?? el.value.length;
-        const newVal = el.value.slice(0, start) + '\n' + tag + '\n' + el.value.slice(end);
-        setContent(newVal);
-        setTimeout(() => { el.selectionStart = el.selectionEnd = start + tag.length + 2; el.focus(); }, 0);
-      } else {
-        setContent((prev) => prev + '\n' + tag + '\n');
-      }
-    } catch {
-      alert('이미지 업로드에 실패했습니다.');
     }
   };
 
@@ -191,37 +169,13 @@ export default function NewPostPage() {
 
         {/* 내용 */}
         <div>
-          {/* 이미지 삽입 툴바 */}
-          <div className="flex items-center gap-1 mb-1">
-            <button
-              type="button"
-              onClick={() => inlineImgRef.current?.click()}
-              className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 border rounded hover:bg-gray-50 transition-colors"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              이미지 삽입
-            </button>
-            <input
-              ref={inlineImgRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleInlineImageUpload(f); e.target.value = ''; }}
-            />
-          </div>
-          <textarea
-            ref={contentRef}
+          <MarkdownEditor
             value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="내용을 입력하세요"
-            rows={12}
-            className={`w-full px-4 py-3 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none transition-all ${
-              errors.content ? 'border-red-400' : 'border-gray-300'
-            }`}
+            onChange={setContent}
+            placeholder="내용을 입력하세요 (마크다운 지원)"
+            rows={16}
+            error={errors.content}
           />
-          {errors.content && <p className="text-xs text-red-500 mt-1">{errors.content}</p>}
         </div>
 
         {/* 버튼 */}
