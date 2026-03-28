@@ -8,9 +8,14 @@ interface PostTableProps {
   posts: Post[];
   onDeleteClick: (id: number) => void;
   onNoticeToggle?: (id: number, current: boolean) => void;
+  // 일괄 선택 props (선택적)
+  selectedIds?: Set<number>;
+  onSelectOne?: (id: number, checked: boolean) => void;
 }
 
-export function PostTable({ posts, onDeleteClick, onNoticeToggle }: PostTableProps) {
+export function PostTable({ posts, onDeleteClick, onNoticeToggle, selectedIds, onSelectOne }: PostTableProps) {
+  const hasBulk = selectedIds !== undefined && onSelectOne !== undefined;
+
   if (posts.length === 0) {
     return <p className="text-center py-12 text-muted-foreground">게시글이 없습니다.</p>;
   }
@@ -20,6 +25,8 @@ export function PostTable({ posts, onDeleteClick, onNoticeToggle }: PostTablePro
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b bg-muted/50">
+            {/* 일괄 선택 체크박스 컬럼 */}
+            {hasBulk && <th className="w-10 px-3 py-3" />}
             <th className="px-4 py-3 text-left font-medium">제목</th>
             <th className="px-4 py-3 text-left font-medium">작성자</th>
             <th className="px-4 py-3 text-left font-medium">조회</th>
@@ -30,7 +37,19 @@ export function PostTable({ posts, onDeleteClick, onNoticeToggle }: PostTablePro
         </thead>
         <tbody>
           {posts.map((post) => (
-            <tr key={post.id} className={`border-b last:border-0 hover:bg-muted/30 ${post.isNotice ? 'bg-amber-50/50' : ''}`}>
+            <tr key={post.id} className={`border-b last:border-0 hover:bg-muted/30 ${post.isNotice ? 'bg-amber-50/50' : ''} ${hasBulk && selectedIds?.has(post.id) ? 'bg-primary/5' : ''}`}>
+              {/* 개별 체크박스 */}
+              {hasBulk && (
+                <td className="w-10 px-3 py-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds?.has(post.id) ?? false}
+                    onChange={(e) => onSelectOne?.(post.id, e.target.checked)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-4 h-4 rounded border-gray-300 cursor-pointer"
+                  />
+                </td>
+              )}
               <td className="px-4 py-3 font-medium max-w-xs truncate">
                 {post.isNotice && (
                   <span className="mr-1.5 inline-block px-1 py-0.5 bg-red-500 text-white text-[9px] font-bold rounded align-middle">공지</span>

@@ -6,7 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
-import { User, Post, Pagination as PaginationData } from '@/types';
+import { User, Post, Pagination as PaginationData, BookmarkedPost } from '@/types';
 import PaginationUI from '@/components/common/Pagination';
 import { formatDate } from '@/lib/date';
 
@@ -14,6 +14,11 @@ interface MediaAsset { id: number; file_url: string; }
 
 interface MyPostsData {
   items: (Post & { boardId: number; boardName: string })[];
+  pagination: PaginationData;
+}
+
+interface BookmarksData {
+  items: BookmarkedPost[];
   pagination: PaginationData;
 }
 
@@ -46,11 +51,21 @@ export default function MyPage() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
+  // 탭 상태
+  const [activeTab, setActiveTab] = useState<'posts' | 'bookmarks'>('posts');
+
   const [posts, setPosts] = useState<MyPostsData['items']>([]);
   const [pagination, setPagination] = useState<PaginationData | null>(null);
   const [page, setPage] = useState(1);
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [postsError, setPostsError] = useState('');
+
+  // 북마크 목록 상태
+  const [bookmarks, setBookmarks] = useState<BookmarkedPost[]>([]);
+  const [bookmarkPagination, setBookmarkPagination] = useState<PaginationData | null>(null);
+  const [bookmarkPage, setBookmarkPage] = useState(1);
+  const [loadingBookmarks, setLoadingBookmarks] = useState(false);
+  const [bookmarksError, setBookmarksError] = useState('');
 
   // 비로그인 시 로그인 페이지로
   useEffect(() => {
@@ -89,11 +104,33 @@ export default function MyPage() {
     }
   }, []);
 
+  const fetchBookmarks = useCallback(async (p: number) => {
+    setLoadingBookmarks(true);
+    setBookmarksError('');
+    try {
+      const res = await api.get<BookmarksData>(`/me/bookmarks?page=${p}&limit=10`);
+      setBookmarks(res.data.items);
+      setBookmarkPagination(res.data.pagination);
+    } catch {
+      setBookmarksError('북마크를 불러오지 못했습니다.');
+    } finally {
+      setLoadingBookmarks(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!hasHydrated || !user) return;
     setEditName(user.name);
     fetchMyPosts(page);
   }, [hasHydrated, user, fetchMyPosts, page]);
+
+  // 북마크 탭 활성화 시 데이터 로드
+  useEffect(() => {
+    if (!hasHydrated || !user) return;
+    if (activeTab === 'bookmarks') {
+      fetchBookmarks(bookmarkPage);
+    }
+  }, [activeTab, bookmarkPage, hasHydrated, user, fetchBookmarks]);
 
   const handleNameSave = async () => {
     if (!editName.trim()) {
@@ -358,53 +395,127 @@ export default function MyPage() {
         )}
       </section>
 
-      {/* 내 게시글 */}
+      {/* 내 게시글 / 북마크 탭 */}
       <section className="space-y-3">
-        <h2 className="text-base font-semibold text-gray-700">내 게시글</h2>
+        {/* 탭 헤더 */}
+        <div className="flex gap-1 border-b">
+          <button
+            onClick={() => setActiveTab('posts')}
+            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              activeTab === 'posts'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            내 게시글
+          </button>
+          <button
+            onClick={() => setActiveTab('bookmarks')}
+            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              activeTab === 'bookmarks'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            북마크
+          </button>
+        </div>
 
-        {postsError && (
-          <p className="text-sm text-red-500 py-2">{postsError}</p>
+        {/* 내 게시글 탭 */}
+        {activeTab === 'posts' && (
+          <>
+            {postsError && (
+              <p className="text-sm text-red-500 py-2">{postsError}</p>
+            )}
+
+            {loadingPosts ? (
+              <div className="flex justify-center py-8">
+                <div className="h-6 w-6 rounded-full border-4 border-blue-500 border-t-transparent animate-spin" />
+              </div>
+            ) : posts.length === 0 ? (
+              <p className="text-center py-10 text-sm text-gray-400">작성한 게시글이 없습니다.</p>
+            ) : (
+              <>
+                <div className="border rounded-lg divide-y">
+                  {posts.map((post) => (
+                    <Link
+                      key={post.id}
+                      href={`/b/${post.boardId}/${post.id}`}
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors group"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 group-hover:text-blue-600 truncate">
+                          {post.title}
+                          {post.commentCount > 0 && (
+                            <span className="ml-1.5 text-xs text-blue-500 font-normal">[{post.commentCount}]</span>
+                          )}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-0.5">{post.boardName}</p>
+                      </div>
+                      <p className="text-xs text-gray-400 shrink-0">
+                        {formatDate(post.createdAt)}
+                      </p>
+                    </Link>
+                  ))}
+                </div>
+
+                {pagination && (
+                  <PaginationUI
+                    page={page}
+                    totalPages={pagination.totalPages}
+                    onChange={(p) => setPage(p)}
+                    className="pt-2"
+                  />
+                )}
+              </>
+            )}
+          </>
         )}
 
-        {loadingPosts ? (
-          <div className="flex justify-center py-8">
-            <div className="h-6 w-6 rounded-full border-4 border-blue-500 border-t-transparent animate-spin" />
-          </div>
-        ) : posts.length === 0 ? (
-          <p className="text-center py-10 text-sm text-gray-400">작성한 게시글이 없습니다.</p>
-        ) : (
+        {/* 북마크 탭 */}
+        {activeTab === 'bookmarks' && (
           <>
-            <div className="border rounded-lg divide-y">
-              {posts.map((post) => (
-                <Link
-                  key={post.id}
-                  href={`/b/${post.boardId}/${post.id}`}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors group"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-800 group-hover:text-blue-600 truncate">
-                      {post.title}
-                      {post.commentCount > 0 && (
-                        <span className="ml-1.5 text-xs text-blue-500 font-normal">[{post.commentCount}]</span>
-                      )}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-0.5">{post.boardName}</p>
-                  </div>
-                  <p className="text-xs text-gray-400 shrink-0">
-                    {formatDate(post.createdAt)}
-                  </p>
-                </Link>
-              ))}
-            </div>
+            {bookmarksError && (
+              <p className="text-sm text-red-500 py-2">{bookmarksError}</p>
+            )}
 
-            {/* 페이지네이션 */}
-            {pagination && (
-              <PaginationUI
-                page={page}
-                totalPages={pagination.totalPages}
-                onChange={(p) => setPage(p)}
-                className="pt-2"
-              />
+            {loadingBookmarks ? (
+              <div className="flex justify-center py-8">
+                <div className="h-6 w-6 rounded-full border-4 border-blue-500 border-t-transparent animate-spin" />
+              </div>
+            ) : bookmarks.length === 0 ? (
+              <p className="text-center py-10 text-sm text-gray-400">북마크한 게시글이 없습니다.</p>
+            ) : (
+              <>
+                <div className="border rounded-lg divide-y">
+                  {bookmarks.map((item) => (
+                    <Link
+                      key={item.id}
+                      href={`/b/${item.boardId}/${item.id}`}
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors group"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 group-hover:text-blue-600 truncate">
+                          {item.title}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-0.5">{item.boardName}</p>
+                      </div>
+                      <p className="text-xs text-gray-400 shrink-0">
+                        {formatDate(item.createdAt)}
+                      </p>
+                    </Link>
+                  ))}
+                </div>
+
+                {bookmarkPagination && (
+                  <PaginationUI
+                    page={bookmarkPage}
+                    totalPages={bookmarkPagination.totalPages}
+                    onChange={(p) => setBookmarkPage(p)}
+                    className="pt-2"
+                  />
+                )}
+              </>
             )}
           </>
         )}

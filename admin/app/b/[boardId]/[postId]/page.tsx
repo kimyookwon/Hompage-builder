@@ -44,6 +44,10 @@ export default function PublicPostPage() {
   const [liked, setLiked] = useState(false);
   const [likingPost, setLikingPost] = useState(false);
 
+  // 북마크
+  const [bookmarked, setBookmarked] = useState(false);
+  const [bookmarking, setBookmarking] = useState(false);
+
   // 이전/다음 게시글
   const [prevPost, setPrevPost] = useState<AdjacentPost | null>(null);
   const [nextPost, setNextPost] = useState<AdjacentPost | null>(null);
@@ -53,6 +57,12 @@ export default function PublicPostPage() {
 
   // 공유
   const [copied, setCopied] = useState(false);
+
+  // 댓글 신고
+  const [reportingCommentId, setReportingCommentId] = useState<number | null>(null);
+  const [reportReason, setReportReason] = useState<'spam' | 'abuse' | 'inappropriate' | 'other'>('spam');
+  const [submittingReport, setSubmittingReport] = useState(false);
+  const [reportedIds, setReportedIds] = useState<Set<number>>(new Set());
 
   // 수정 모드
   const [isEditing, setIsEditing] = useState(false);
@@ -71,6 +81,7 @@ export default function PublicPostPage() {
       setPost(res.data);
       setLikeCount(res.data.likeCount ?? 0);
       setLiked(res.data.liked ?? false);
+      setBookmarked(res.data.bookmarked ?? false);
       setPrevPost(res.data.prevPost ?? null);
       setNextPost(res.data.nextPost ?? null);
       setAttachments(res.data.attachments ?? []);
@@ -116,6 +127,24 @@ export default function PublicPostPage() {
       // 조용히 처리
     } finally {
       setLikingPost(false);
+    }
+  };
+
+  const handleBookmark = async () => {
+    if (!user) {
+      sessionStorage.setItem('redirect_after_login', `/b/${boardId}/${postId}`);
+      router.push('/login');
+      return;
+    }
+    if (bookmarking) return;
+    setBookmarking(true);
+    try {
+      const res = await api.post<{ bookmarked: boolean }>(`/posts/${postId}/bookmark`, {});
+      setBookmarked(res.data.bookmarked);
+    } catch {
+      // 조용히 처리
+    } finally {
+      setBookmarking(false);
     }
   };
 
@@ -258,6 +287,21 @@ export default function PublicPostPage() {
       setTimeout(() => setCopied(false), 2000);
     } catch {
       // 클립보드 접근 실패 시 무시
+    }
+  };
+
+  // 댓글 신고 핸들러
+  const handleReport = async (commentId: number) => {
+    if (!user) { router.push('/login'); return; }
+    setSubmittingReport(true);
+    try {
+      await api.post(`/comments/${commentId}/report`, { reason: reportReason });
+      setReportedIds((prev) => new Set([...prev, commentId]));
+      setReportingCommentId(null);
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : '신고 처리 중 오류가 발생했습니다.');
+    } finally {
+      setSubmittingReport(false);
     }
   };
 
@@ -494,6 +538,25 @@ export default function PublicPostPage() {
                   onAdded={(att) => setAttachments((prev) => [...prev, att])}
                   onDeleted={(id) => setAttachments((prev) => prev.filter((a) => a.id !== id))}
                 />
+                {/* 다운로드 링크 목록 — 다운로드 수 포함 */}
+                {attachments.length > 0 && (
+                  <ul className="mt-2 space-y-1">
+                    {attachments.map((att) => (
+                      <li key={att.id} className="flex items-center gap-2 text-sm">
+                        <a
+                          href={`/api/attachments/${att.id}/download`}
+                          download={att.fileName}
+                          className="text-blue-600 hover:underline truncate max-w-xs dark:text-blue-400"
+                        >
+                          {att.fileName}
+                        </a>
+                        <span className="text-xs text-gray-400 ml-auto shrink-0 dark:text-gray-500">
+                          {att.downloadCount ?? 0}회 다운로드
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             )}
 
@@ -517,6 +580,23 @@ export default function PublicPostPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                 </svg>
                 <span>좋아요 {likeCount > 0 ? likeCount : ''}</span>
+              </button>
+
+              {/* 북마크 버튼 */}
+              <button
+                onClick={handleBookmark}
+                disabled={bookmarking}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border transition-colors ${
+                  bookmarked
+                    ? 'bg-yellow-50 border-yellow-300 text-yellow-600'
+                    : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+                }`}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                  fill={bookmarked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
+                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                </svg>
+                {bookmarked ? '북마크됨' : '북마크'}
               </button>
 
               {/* 공유 버튼 */}
@@ -646,6 +726,15 @@ export default function PublicPostPage() {
                             삭제
                           </button>
                         )}
+                        {/* 신고 버튼 — 본인 댓글 제외 */}
+                        {user && user.id !== comment.authorId && !isEditingThis && (
+                          <button
+                            onClick={() => setReportingCommentId(reportingCommentId === comment.id ? null : comment.id)}
+                            className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+                          >
+                            {reportedIds.has(comment.id) ? '신고됨' : '신고'}
+                          </button>
+                        )}
                       </div>
                     </div>
                     {isEditingThis ? (
@@ -757,6 +846,15 @@ export default function PublicPostPage() {
                                 삭제
                               </button>
                             )}
+                            {/* 신고 버튼 — 본인 대댓글 제외 */}
+                            {user && user.id !== reply.authorId && !isEditingReply && (
+                              <button
+                                onClick={() => setReportingCommentId(reportingCommentId === reply.id ? null : reply.id)}
+                                className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+                              >
+                                {reportedIds.has(reply.id) ? '신고됨' : '신고'}
+                              </button>
+                            )}
                           </div>
                         </div>
                         {isEditingReply ? (
@@ -830,6 +928,46 @@ export default function PublicPostPage() {
           </div>
         </form>
       </section>
+
+      {/* 댓글 신고 모달 */}
+      {reportingCommentId && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4">
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">댓글 신고</h3>
+            <div className="space-y-2">
+              {(['spam', 'abuse', 'inappropriate', 'other'] as const).map((r) => (
+                <label key={r} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="reason"
+                    value={r}
+                    checked={reportReason === r}
+                    onChange={() => setReportReason(r)}
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                    {{ spam: '스팸', abuse: '욕설/비방', inappropriate: '부적절한 내용', other: '기타' }[r]}
+                  </span>
+                </label>
+              ))}
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setReportingCommentId(null)}
+                className="px-4 py-2 border text-sm rounded-lg text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={() => handleReport(reportingCommentId)}
+                disabled={submittingReport}
+                className="px-4 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+              >
+                {submittingReport ? '신고 중...' : '신고하기'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

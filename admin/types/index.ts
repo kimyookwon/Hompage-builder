@@ -117,12 +117,22 @@ export interface Post {
   viewCount: number;
   likeCount: number;
   liked: boolean;
+  bookmarked?: boolean;
   prevPost?: AdjacentPost | null;
   nextPost?: AdjacentPost | null;
   attachments?: PostAttachment[];
   tags?: PostTag[];
   createdAt: string;
   updatedAt: string;
+}
+
+// 북마크된 게시글 타입
+export interface BookmarkedPost {
+  id: number;
+  title: string;
+  boardId: number;
+  boardName: string;
+  createdAt: string; // 북마크한 시각
 }
 
 // 첨부파일 타입
@@ -133,6 +143,19 @@ export interface PostAttachment {
   fileUrl: string;
   fileSize: number;
   mimeType: string;
+  downloadCount?: number;
+  createdAt: string;
+}
+
+// 신고 타입
+export interface Report {
+  id: number;
+  commentId: number;
+  commentContent: string;
+  reporterName: string;
+  reason: 'spam' | 'abuse' | 'inappropriate' | 'other';
+  status: 'pending' | 'reviewed' | 'dismissed';
+  note: string | null;
   createdAt: string;
 }
 

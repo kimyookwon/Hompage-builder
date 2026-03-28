@@ -26,6 +26,18 @@ class AuthMiddleware {
     return $payload;
   }
 
+  // 토큰이 있으면 페이로드 반환, 없거나 무효하면 null
+  public static function tryAuth(): ?object {
+    $token = JwtHandler::extractFromHeader();
+    if ($token === null) return null;
+
+    try {
+      return JwtHandler::verify($token);
+    } catch (\Exception) {
+      return null;
+    }
+  }
+
   // 관리자 권한 확인
   public static function requireAdmin(): object {
     $payload = self::require();

@@ -116,4 +116,51 @@ class AttachmentController {
     PostAttachment::delete((int) $id);
     ResponseHelper::success(['message' => '삭제되었습니다.']);
   }
+
+  // GET /api/attachments/{id}/download — 다운로드 (카운트 증가 후 리다이렉트)
+  public function download(string $id): void {
+    $attachment = PostAttachment::findById((int) $id);
+    if (!$attachment) ResponseHelper::error('첨부파일을 찾을 수 없습니다.', 404);
+
+    // 다운로드 카운트 증가
+    $pdo = \App\Config\Database::getInstance();
+    $pdo->prepare('UPDATE post_attachments SET download_count = download_count + 1 WHERE id = ?')
+        ->execute([(int) $id]);
+
+    // 리다이렉트
+    http_response_code(301);
+    header('Location: ' . $attachment['file_url']);
+    exit;
+  }
+
+  // GET /api/admin/attachments — 첨부파일 다운로드 통계 (관리자)
+  public function adminStats(): void {
+    AuthMiddleware::requireAdmin();
+
+    $page   = max(1, (int) ($_GET['page']  ?? 1));
+    $limit  = min(100, max(1, (int) ($_GET['limit'] ?? 20)));
+    $offset = ($page - 1) * $limit;
+
+    $sort  = in_array($_GET['sort'] ?? '', ['download_count', 'file_size', 'created_at'])
+      ? $_GET['sort'] : 'created_at';
+    $order = strtolower($_GET['order'] ?? 'desc') === 'asc' ? 'ASC' : 'DESC';
+
+    $pdo = \App\Config\Database::getInstance();
+
+    $stmt = $pdo->prepare(
+      "SELECT a.*, p.title AS post_title, u.name AS uploader_name
+       FROM post_attachments a
+       JOIN posts p ON p.id = a.post_id
+       JOIN users u ON u.id = a.uploaded_by
+       ORDER BY a.{$sort} {$order}
+       LIMIT ? OFFSET ?"
+    );
+    $stmt->execute([$limit, $offset]);
+    $items = $stmt->fetchAll();
+
+    $countStmt = $pdo->query('SELECT COUNT(*) FROM post_attachments');
+    $total = (int) $countStmt->fetchColumn();
+
+    ResponseHelper::paginated($items, $total, $page, $limit);
+  }
 }

@@ -31,6 +31,9 @@ export default function BoardPostsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  // 일괄 선택 상태
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const addToast = useAppStore((s) => s.addToast);
 
   const fetchData = useCallback(async (currentPage: number, q: string, s: SortOption) => {
@@ -102,6 +105,39 @@ export default function BoardPostsPage() {
     }
   };
 
+  // 전체 선택 / 해제
+  const handleSelectAll = (checked: boolean) => {
+    setSelectedIds(checked ? new Set(posts.map((p) => p.id)) : new Set());
+  };
+
+  // 개별 선택 토글
+  const handleSelectOne = (id: number, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+
+  // 선택 일괄 삭제
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`선택한 ${selectedIds.size}개의 게시글을 삭제하시겠습니까?`)) return;
+    setIsBulkDeleting(true);
+    try {
+      await api.post('/admin/posts/bulk', { ids: [...selectedIds], action: 'delete' });
+      setPosts((prev) => prev.filter((p) => !selectedIds.has(p.id)));
+      setTotal((t) => t - selectedIds.size);
+      setSelectedIds(new Set());
+      addToast(`${selectedIds.size}개의 게시글이 삭제되었습니다.`);
+    } catch {
+      addToast('일괄 삭제에 실패했습니다.', 'destructive');
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
   const totalPages = Math.ceil(total / LIMIT);
 
   return (
@@ -162,10 +198,41 @@ export default function BoardPostsPage() {
           </div>
         </div>
 
+        {/* 일괄 작업 툴바 */}
+        {!isLoading && posts.length > 0 && (
+          <div className="flex items-center gap-3 py-2">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={posts.length > 0 && selectedIds.size === posts.length}
+                onChange={(e) => handleSelectAll(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300"
+              />
+              <span className="text-sm text-muted-foreground">전체 선택</span>
+            </label>
+            {selectedIds.size > 0 && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleBulkDelete}
+                disabled={isBulkDeleting}
+              >
+                {isBulkDeleting ? '삭제 중...' : `선택 삭제 (${selectedIds.size})`}
+              </Button>
+            )}
+          </div>
+        )}
+
         {isLoading ? (
           <div className="text-center py-12 text-muted-foreground">불러오는 중...</div>
         ) : (
-          <PostTable posts={posts} onDeleteClick={setDeletingId} onNoticeToggle={handleNoticeToggle} />
+          <PostTable
+            posts={posts}
+            onDeleteClick={setDeletingId}
+            onNoticeToggle={handleNoticeToggle}
+            selectedIds={selectedIds}
+            onSelectOne={handleSelectOne}
+          />
         )}
 
         {totalPages > 1 && (

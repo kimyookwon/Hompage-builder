@@ -138,4 +138,33 @@ class ProfileController {
 
     ResponseHelper::paginated($items, $total, $page, $limit);
   }
+
+  // GET /api/me/bookmarks — 내 북마크 목록
+  public function bookmarks(): void {
+    $payload = AuthMiddleware::require();
+
+    $page  = max(1, (int) ($_GET['page']  ?? 1));
+    $limit = min(50, max(1, (int) ($_GET['limit'] ?? 20)));
+    $offset = ($page - 1) * $limit;
+
+    $pdo = Database::getInstance();
+
+    $stmt = $pdo->prepare(
+      'SELECT p.id, p.title, b.id AS board_id, b.name AS board_name, bm.created_at
+       FROM post_bookmarks bm
+       JOIN posts p ON p.id = bm.post_id
+       JOIN boards b ON b.id = p.board_id
+       WHERE bm.user_id = ?
+       ORDER BY bm.created_at DESC
+       LIMIT ? OFFSET ?'
+    );
+    $stmt->execute([(int) $payload->sub, $limit, $offset]);
+    $items = $stmt->fetchAll();
+
+    $countStmt = $pdo->prepare('SELECT COUNT(*) FROM post_bookmarks WHERE user_id = ?');
+    $countStmt->execute([(int) $payload->sub]);
+    $total = (int) $countStmt->fetchColumn();
+
+    ResponseHelper::paginated($items, $total, $page, $limit);
+  }
 }

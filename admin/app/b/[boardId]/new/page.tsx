@@ -30,6 +30,11 @@ export default function NewPostPage() {
   const [errors, setErrors] = useState<{ title?: string; content?: string }>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // 임시저장 상태
+  const [hasDraft, setHasDraft] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const DRAFT_KEY = `post_draft_${boardId}`;
+
   // 비로그인 시 로그인 페이지로
   useEffect(() => {
     if (!hasHydrated) return;
@@ -49,6 +54,31 @@ export default function NewPostPage() {
       router.replace(`/b/${boardId}`);
     });
   }, [hasHydrated, user, boardId, router]);
+
+  // 초기 로드 시 임시저장 복원
+  useEffect(() => {
+    const saved = localStorage.getItem(DRAFT_KEY);
+    if (saved) {
+      try {
+        const draft = JSON.parse(saved) as { title?: string; content?: string };
+        if (draft.title) setTitle(draft.title);
+        if (draft.content) setContent(draft.content);
+        setHasDraft(true);
+      } catch {
+        // 파싱 실패 시 무시
+      }
+    }
+  }, [DRAFT_KEY]);
+
+  // title/content 변경 시 1초 디바운스 자동저장
+  useEffect(() => {
+    if (!title && !content) return;
+    const timer = setTimeout(() => {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ title, content, savedAt: Date.now() }));
+      setLastSaved(new Date());
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [title, content, DRAFT_KEY]);
 
   const validate = () => {
     const e: { title?: string; content?: string } = {};
@@ -83,6 +113,8 @@ export default function NewPostPage() {
         ...(thumbnailUrl && { thumbnail_url: thumbnailUrl }),
         tags,
       });
+      // 제출 성공 시 임시저장 삭제
+      localStorage.removeItem(DRAFT_KEY);
       router.push(`/b/${boardId}/${res.data.id}`);
     } catch {
       alert('게시글 작성에 실패했습니다.');
@@ -111,6 +143,25 @@ export default function NewPostPage() {
       </div>
 
       <h1 className="text-xl font-bold text-gray-900 mb-6">새 게시글 작성</h1>
+
+      {/* 임시저장 복원 배너 */}
+      {hasDraft && (
+        <div className="flex items-center justify-between text-sm bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-2 mb-4">
+          <span className="text-yellow-700">임시저장된 내용이 있습니다.</span>
+          <button
+            type="button"
+            onClick={() => {
+              localStorage.removeItem(DRAFT_KEY);
+              setTitle('');
+              setContent('');
+              setHasDraft(false);
+            }}
+            className="text-xs text-red-500 hover:underline"
+          >
+            초기화
+          </button>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* 제목 */}
@@ -188,6 +239,13 @@ export default function NewPostPage() {
             error={errors.content}
           />
         </div>
+
+        {/* 자동저장 상태 표시 */}
+        {lastSaved && (
+          <p className="text-xs text-gray-400 text-right">
+            {`${lastSaved.toLocaleTimeString('ko-KR')} 자동저장됨`}
+          </p>
+        )}
 
         {/* 버튼 */}
         <div className="flex items-center justify-between pt-2">

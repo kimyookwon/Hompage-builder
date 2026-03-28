@@ -49,11 +49,7 @@ class PostController {
     if (!$post) ResponseHelper::error('게시글을 찾을 수 없습니다.', 404);
 
     $board = Board::findById((int) $post['board_id']);
-    $payload = null;
-    $token = \App\Utils\JwtHandler::extractFromHeader();
-    if ($token) {
-      try { $payload = \App\Utils\JwtHandler::verify($token); } catch (\Exception) {}
-    }
+    $payload = AuthMiddleware::tryAuth();
 
     if ($board['read_permission'] === 'admin_only' && (!$payload || $payload->role !== 'admin')) {
       ResponseHelper::error('접근 권한이 없습니다.', 403);
@@ -75,6 +71,15 @@ class PostController {
     $adjacent = Post::getAdjacentPosts((int) $id, (int) $post['board_id']);
     $post['prev_post'] = $adjacent['prev'];
     $post['next_post'] = $adjacent['next'];
+
+    // 북마크 여부 체크
+    $post['bookmarked'] = false;
+    if ($payload) {
+      $pdo = \App\Config\Database::getInstance();
+      $bmStmt = $pdo->prepare('SELECT COUNT(*) FROM post_bookmarks WHERE post_id = ? AND user_id = ?');
+      $bmStmt->execute([(int) $id, (int) $payload->sub]);
+      $post['bookmarked'] = (int) $bmStmt->fetchColumn() > 0;
+    }
 
     // 첨부파일 + 태그 목록 포함
     $post['attachments'] = PostAttachment::findByPost((int) $id);
@@ -182,5 +187,27 @@ class PostController {
 
     Post::delete((int) $id);
     ResponseHelper::success(['message' => '게시글이 삭제되었습니다.']);
+  }
+
+  // POST /api/posts/{id}/bookmark — 북마크 토글
+  public function bookmark(string $id): void {
+    $payload = AuthMiddleware::require();
+
+    $post = Post::findById((int) $id);
+    if (!$post) ResponseHelper::error('게시글을 찾을 수 없습니다.', 404);
+
+    $pdo = \App\Config\Database::getInstance();
+    $check = $pdo->prepare('SELECT id FROM post_bookmarks WHERE post_id = ? AND user_id = ?');
+    $check->execute([(int) $id, (int) $payload->sub]);
+
+    if ($check->fetch()) {
+      $pdo->prepare('DELETE FROM post_bookmarks WHERE post_id = ? AND user_id = ?')
+          ->execute([(int) $id, (int) $payload->sub]);
+      ResponseHelper::success(['bookmarked' => false]);
+    } else {
+      $pdo->prepare('INSERT INTO post_bookmarks (post_id, user_id) VALUES (?, ?)')
+          ->execute([(int) $id, (int) $payload->sub]);
+      ResponseHelper::success(['bookmarked' => true]);
+    }
   }
 }

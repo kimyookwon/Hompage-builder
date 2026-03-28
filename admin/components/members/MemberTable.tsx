@@ -10,9 +10,13 @@ interface MemberTableProps {
   onRoleChange: (id: number, role: string) => Promise<void>;
   onStatusChange: (id: number, status: string) => Promise<void>;
   onRowClick?: (member: User) => void;
+  // 일괄 선택 props (선택적)
+  selectedIds?: Set<number>;
+  onSelectOne?: (id: number, checked: boolean) => void;
 }
 
-export function MemberTable({ members, onRoleChange, onStatusChange, onRowClick }: MemberTableProps) {
+export function MemberTable({ members, onRoleChange, onStatusChange, onRowClick, selectedIds, onSelectOne }: MemberTableProps) {
+  const hasBulk = selectedIds !== undefined && onSelectOne !== undefined;
   const [pending, setPending] = useState<{ id: number; field: string; value: string } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -41,6 +45,8 @@ export function MemberTable({ members, onRoleChange, onStatusChange, onRowClick 
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/50">
+              {/* 일괄 선택 체크박스 컬럼 */}
+              {hasBulk && <th className="w-10 px-3 py-3" />}
               <th className="px-4 py-3 text-left font-medium">이메일</th>
               <th className="px-4 py-3 text-left font-medium">이름</th>
               <th className="px-4 py-3 text-left font-medium">소셜</th>
@@ -53,9 +59,20 @@ export function MemberTable({ members, onRoleChange, onStatusChange, onRowClick 
             {members.map((member) => (
               <tr
                 key={member.id}
-                className="border-b last:border-0 hover:bg-muted/30 cursor-pointer"
+                className={`border-b last:border-0 hover:bg-muted/30 cursor-pointer ${hasBulk && selectedIds?.has(member.id) ? 'bg-primary/5' : ''}`}
                 onClick={() => onRowClick?.(member)}
               >
+                {/* 개별 체크박스 */}
+                {hasBulk && (
+                  <td className="w-10 px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds?.has(member.id) ?? false}
+                      onChange={(e) => onSelectOne?.(member.id, e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-300 cursor-pointer"
+                    />
+                  </td>
+                )}
                 <td className="px-4 py-3">{member.email}</td>
                 <td className="px-4 py-3">{member.name}</td>
                 <td className="px-4 py-3">

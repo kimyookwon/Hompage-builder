@@ -108,9 +108,14 @@ $router->post('/api/posts/{id}/like', [\App\Controllers\PostController::class, '
 $router->patch('/api/posts/{id}/notice', [\App\Controllers\PostController::class, 'toggleNotice']);
 $router->delete('/api/posts/{id}', [\App\Controllers\PostController::class, 'delete']);
 
+// ─── 북마크 ─────────────────────────────────────────────
+$router->post('/api/posts/{id}/bookmark', [\App\Controllers\PostController::class, 'bookmark']);
+$router->get('/api/me/bookmarks', [\App\Controllers\ProfileController::class, 'bookmarks']);
+
 // ─── 첨부파일 ────────────────────────────────────────────
 $router->post('/api/posts/{id}/attachments', [\App\Controllers\AttachmentController::class, 'upload']);
 $router->delete('/api/attachments/{id}', [\App\Controllers\AttachmentController::class, 'delete']);
+$router->get('/api/attachments/{id}/download', [\App\Controllers\AttachmentController::class, 'download']);
 
 // ─── 댓글 ───────────────────────────────────────────────
 $router->get('/api/posts/{id}/comments', [\App\Controllers\CommentController::class, 'list']);
@@ -124,6 +129,18 @@ $router->get('/api/notifications', [\App\Controllers\NotificationController::cla
 $router->get('/api/notifications/unread-count', [\App\Controllers\NotificationController::class, 'unreadCount']);
 $router->patch('/api/notifications/read-all', [\App\Controllers\NotificationController::class, 'markAllRead']);
 $router->patch('/api/notifications/{id}/read', [\App\Controllers\NotificationController::class, 'markRead']);
+
+// ─── 댓글 신고 ──────────────────────────────────────────
+$router->post('/api/comments/{id}/report', [\App\Controllers\ReportController::class, 'create']);
+$router->get('/api/admin/reports', [\App\Controllers\ReportController::class, 'adminList']);
+$router->patch('/api/admin/reports/{id}', [\App\Controllers\ReportController::class, 'adminUpdate']);
+
+// ─── 관리자 일괄 작업 ────────────────────────────────────
+$router->post('/api/admin/posts/bulk', [\App\Controllers\BulkController::class, 'deletePosts']);
+$router->post('/api/admin/users/bulk', [\App\Controllers\BulkController::class, 'updateUsersStatus']);
+
+// ─── 첨부파일 통계 (관리자) ──────────────────────────────
+$router->get('/api/admin/attachments', [\App\Controllers\AttachmentController::class, 'adminStats']);
 
 // ─── 통계 ───────────────────────────────────────────────
 $router->get('/api/admin/stats', [\App\Controllers\StatsController::class, 'index']);
