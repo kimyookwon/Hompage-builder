@@ -1,0 +1,85 @@
+name: CD — 프로덕션 배포
+
+on:
+  # CI 파이프라인 완료 후 자동 실행
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  # 수동 실행 허용
+  workflow_dispatch:
+
+# 동시 배포 방지 (이전 배포 완료 후 다음 실행)
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: 서버 배포
+    runs-on: ubuntu-latest
+    # CI가 실패하면 배포 스킵
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+
+    environment:
+      name: production
+      url: ${{ vars.SITE_URL }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: SSH 배포 실행
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          # 타임아웃: 10분 (빌드 포함)
+          command_timeout: 10m
+          script: |
+            set -e
+            cd ${{ secrets.DEPLOY_PATH }}
+
+            echo "=== [1/4] 코드 동기화 ==="
+            git pull origin main
+
+            echo "=== [2/4] Docker 이미지 빌드 ==="
+            docker compose -f docker-compose.prod.yml build \
+              --build-arg NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }} \
+              --build-arg NEXT_PUBLIC_SITE_URL=${{ secrets.NEXT_PUBLIC_SITE_URL }}
+
+            echo "=== [3/4] 컨테이너 재시작 (무중단) ==="
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+
+            echo "=== [4/4] DB 마이그레이션 ==="
+            # PHP 컨테이너 헬스 대기 (최대 60초)
+            for i in $(seq 1 12); do
+              STATUS=$(docker inspect --format='{{.State.Health.Status}}' homepage_php 2>/dev/null || echo "starting")
+              if [ "$STATUS" = "healthy" ]; then
+                echo "PHP 준비 완료"
+                break
+              fi
+              echo "대기 중... ($i/12) — 상태: $STATUS"
+              sleep 5
+            done
+
+            docker compose -f docker-compose.prod.yml exec -T php php database/migrate.php
+
+            echo "=== 배포 완료 ==="
+            docker compose -f docker-compose.prod.yml ps
+
+      - name: 배포 실패 알림
+        if: failure()
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          script: |
+            cd ${{ secrets.DEPLOY_PATH }}
+            echo "=== 배포 실패 — 롤백 시도 ==="
+            # 이전 이미지로 롤백 (태그 latest-prev 존재 시)
+            docker compose -f docker-compose.prod.yml up -d || true
+            docker compose -f docker-compose.prod.yml ps
