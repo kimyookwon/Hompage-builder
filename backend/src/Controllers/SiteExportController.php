@@ -66,20 +66,32 @@ class SiteExportController {
       if (!empty($data['site_settings'])) {
         $s = $data['site_settings'];
         $pdo->prepare(
-          'INSERT INTO site_settings (logo_url, primary_color, secondary_color, background_color, gtm_code)
-           VALUES (?, ?, ?, ?, ?)
+          'INSERT INTO site_settings
+             (logo_url, primary_color, secondary_color, background_color, gtm_code,
+              home_slug, site_name, notice_enabled, notice_text, notice_color)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON DUPLICATE KEY UPDATE
-             logo_url = VALUES(logo_url),
-             primary_color = VALUES(primary_color),
+             logo_url        = VALUES(logo_url),
+             primary_color   = VALUES(primary_color),
              secondary_color = VALUES(secondary_color),
-             background_color = VALUES(background_color),
-             gtm_code = VALUES(gtm_code)'
+             background_color= VALUES(background_color),
+             gtm_code        = VALUES(gtm_code),
+             home_slug       = VALUES(home_slug),
+             site_name       = VALUES(site_name),
+             notice_enabled  = VALUES(notice_enabled),
+             notice_text     = VALUES(notice_text),
+             notice_color    = VALUES(notice_color)'
         )->execute([
-          $s['logo_url'] ?? null,
-          $s['primary_color'] ?? '#3b82f6',
+          $s['logo_url']        ?? null,
+          $s['primary_color']   ?? '#3b82f6',
           $s['secondary_color'] ?? '#8b5cf6',
           $s['background_color'] ?? '#ffffff',
-          $s['gtm_code'] ?? null,
+          $s['gtm_code']        ?? null,
+          $s['home_slug']       ?? null,
+          $s['site_name']       ?? null,
+          (int) ($s['notice_enabled'] ?? 0),
+          $s['notice_text']     ?? null,
+          $s['notice_color']    ?? '#1d4ed8',
         ]);
       }
 
