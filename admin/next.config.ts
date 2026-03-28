@@ -5,6 +5,8 @@ const API_ORIGIN = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/ap
 const nextConfig: NextConfig = {
   // 워크스페이스 루트 경고 제거
   outputFileTracingRoot: require('path').join(__dirname, '../'),
+  // Docker 프로덕션 빌드용 standalone 모드
+  output: process.env.NEXT_OUTPUT === 'standalone' ? 'standalone' : undefined,
   // 개발 서버에서 API + 업로드 파일 프록시
   async rewrites() {
     return [

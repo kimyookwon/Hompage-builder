@@ -2,7 +2,9 @@
 .env
 .env.local
 .env.docker
+.env.prod
 backend/.env
+admin/.env.prod
 
 # 의존성
 node_modules/
