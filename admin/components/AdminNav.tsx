@@ -15,8 +15,11 @@ import {
   LogOut,
   Menu,
   X,
+  Moon,
+  Sun,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
 import { SiteSettings } from '@/types';
@@ -36,6 +39,9 @@ export function AdminNav() {
   const { user, clearAuth } = useAuth();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [siteName, setSiteName] = useState<string | null>(null);
+  const { resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     api.get<SiteSettings>('/site-settings')
@@ -87,8 +93,17 @@ export function AdminNav() {
         })}
       </nav>
 
-      {/* 로그아웃 */}
-      <div className="px-2 py-4 border-t">
+      {/* 다크모드 토글 + 로그아웃 */}
+      <div className="px-2 py-4 border-t space-y-1">
+        {mounted && (
+          <button
+            onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+            className="flex items-center gap-3 px-3 py-2 w-full rounded-md text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
+          >
+            {resolvedTheme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            {resolvedTheme === 'dark' ? '라이트 모드' : '다크 모드'}
+          </button>
+        )}
         <button
           onClick={handleLogout}
           className="flex items-center gap-3 px-3 py-2 w-full rounded-md text-sm text-destructive hover:bg-destructive/10 transition-colors"

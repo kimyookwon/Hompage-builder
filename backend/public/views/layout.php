@@ -11,6 +11,42 @@
     }
   ?>
   <title><?= htmlspecialchars($fullTitle) ?></title>
+  <?php
+    // OG / Twitter Card 메타 데이터 준비
+    $ogTitle       = htmlspecialchars($page['title'] ?? $fullTitle);
+    $ogDescription = htmlspecialchars($page['seo_description'] ?? ($siteName !== '' ? $siteName : ''));
+    $ogImage       = htmlspecialchars($page['seo_og_image'] ?? ($settings['logo_url'] ?? ''));
+    $siteUrl       = rtrim($settings['site_url'] ?? '', '/');
+    $currentPath   = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+    $ogUrl         = $siteUrl !== '' ? $siteUrl . $currentPath : '';
+  ?>
+
+  <!-- Open Graph -->
+  <meta property="og:type"        content="website">
+  <meta property="og:title"       content="<?= $ogTitle ?>">
+  <?php if ($ogDescription !== ''): ?>
+  <meta property="og:description" content="<?= $ogDescription ?>">
+  <meta name="description"        content="<?= $ogDescription ?>">
+  <?php endif; ?>
+  <?php if ($ogUrl !== ''): ?>
+  <meta property="og:url"         content="<?= $ogUrl ?>">
+  <?php endif; ?>
+  <?php if ($ogImage !== ''): ?>
+  <meta property="og:image"       content="<?= $ogImage ?>">
+  <?php endif; ?>
+  <?php if ($siteName !== ''): ?>
+  <meta property="og:site_name"   content="<?= htmlspecialchars($siteName) ?>">
+  <?php endif; ?>
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card"        content="<?= $ogImage !== '' ? 'summary_large_image' : 'summary' ?>">
+  <meta name="twitter:title"       content="<?= $ogTitle ?>">
+  <?php if ($ogDescription !== ''): ?>
+  <meta name="twitter:description" content="<?= $ogDescription ?>">
+  <?php endif; ?>
+  <?php if ($ogImage !== ''): ?>
+  <meta name="twitter:image"       content="<?= $ogImage ?>">
+  <?php endif; ?>
 
   <!-- CSS 변수: 사이트 설정에서 주입 -->
   <style>
