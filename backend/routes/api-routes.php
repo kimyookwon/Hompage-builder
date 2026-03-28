@@ -1,27 +1,108 @@
 <?php
 
-// 헬스체크 (DB 연결 상태 포함)
+// 헬스체크 (DB, 디스크, 메모리, 업로드 디렉토리 상태)
 $router->get('/api/health', function (): void {
-  $dbStatus = 'error';
-  $dbVersion = null;
+  $overallStatus = 'ok';
+  $httpCode = 200;
+
+  // --- DB 체크 ---
+  $dbCheck = ['status' => 'error', 'latency_ms' => 0, 'version' => null];
   try {
     $pdo = \App\Config\Database::getInstance();
+    $start = microtime(true);
     $row = $pdo->query('SELECT VERSION() AS v')->fetch();
-    $dbStatus = 'ok';
-    $dbVersion = $row['v'] ?? null;
+    $latency = (microtime(true) - $start) * 1000;
+    $dbCheck = [
+      'status'     => 'ok',
+      'latency_ms' => round($latency, 1),
+      'version'    => $row['v'] ?? null,
+    ];
   } catch (\Throwable $e) {
-    $dbStatus = 'error';
+    $dbCheck['status'] = 'error';
+    $overallStatus = 'error';
+    $httpCode = 503;
+    // Sentry 에러 보고 (연동 시)
+    if (class_exists(\App\Utils\SentryBootstrap::class)) {
+      \App\Utils\SentryBootstrap::captureException($e);
+    }
   }
-  $status = $dbStatus === 'ok' ? 'ok' : 'degraded';
-  http_response_code($status === 'ok' ? 200 : 503);
+
+  // --- 디스크 체크 ---
+  $uploadPath = __DIR__ . '/../public/uploads';
+  $diskPath = realpath($uploadPath) ?: __DIR__;
+  $freeBytes = @disk_free_space($diskPath);
+  $totalBytes = @disk_total_space($diskPath);
+  $freeGb = $freeBytes !== false ? round($freeBytes / 1073741824, 1) : 0;
+  $totalGb = $totalBytes !== false ? round($totalBytes / 1073741824, 1) : 0;
+  $usagePercent = ($totalBytes && $totalBytes > 0)
+    ? round((1 - $freeBytes / $totalBytes) * 100)
+    : 0;
+
+  $diskStatus = 'ok';
+  if ($usagePercent >= 95) {
+    $diskStatus = 'critical';
+    if ($overallStatus !== 'error') $overallStatus = 'degraded';
+  } elseif ($usagePercent >= 90) {
+    $diskStatus = 'warn';
+    if ($overallStatus !== 'error') $overallStatus = 'degraded';
+  }
+
+  $diskCheck = [
+    'status'        => $diskStatus,
+    'free_gb'       => $freeGb,
+    'total_gb'      => $totalGb,
+    'usage_percent' => (int) $usagePercent,
+  ];
+
+  // --- 메모리 체크 ---
+  $phpMemory = memory_get_usage(true);
+  $phpPeak = memory_get_peak_usage(true);
+  $limitStr = ini_get('memory_limit');
+  $limitMb = 128; // 기본값
+  if (preg_match('/^(\d+)(M|G|K)?$/i', $limitStr, $m)) {
+    $val = (int) $m[1];
+    $unit = strtoupper($m[2] ?? 'M');
+    $limitMb = match ($unit) {
+      'G' => $val * 1024,
+      'K' => $val / 1024,
+      default => $val,
+    };
+  }
+
+  $memoryCheck = [
+    'status'        => 'ok',
+    'php_memory_mb' => round($phpMemory / 1048576, 1),
+    'php_peak_mb'   => round($phpPeak / 1048576, 1),
+    'php_limit_mb'  => (int) $limitMb,
+  ];
+
+  // --- 업로드 디렉토리 체크 ---
+  $uploadWritable = is_dir($uploadPath) && is_writable($uploadPath);
+  $uploadStatus = $uploadWritable ? 'ok' : 'warn';
+  if ($uploadStatus === 'warn' && $overallStatus === 'ok') {
+    $overallStatus = 'degraded';
+  }
+
+  $uploadCheck = [
+    'status'   => $uploadStatus,
+    'writable' => $uploadWritable,
+  ];
+
+  // --- 응답 ---
+  http_response_code($httpCode);
   header('Content-Type: application/json');
   echo json_encode([
-    'success' => $status === 'ok',
+    'success' => $overallStatus !== 'error',
     'data' => [
-      'status'     => $status,
-      'db'         => $dbStatus,
-      'db_version' => $dbVersion,
-      'timestamp'  => date('c'),
+      'status'    => $overallStatus,
+      'version'   => $_ENV['APP_VERSION'] ?? '1.0.0',
+      'timestamp' => date('c'),
+      'checks'    => [
+        'database'   => $dbCheck,
+        'disk'       => $diskCheck,
+        'memory'     => $memoryCheck,
+        'upload_dir' => $uploadCheck,
+      ],
     ],
   ]);
 });

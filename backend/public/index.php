@@ -10,6 +10,9 @@ use Dotenv\Dotenv;
 $dotenv = Dotenv::createImmutable(__DIR__ . '/..');
 $dotenv->load();
 
+// Sentry 초기화 (SENTRY_DSN 환경변수가 있을 때만 활성화)
+\App\Utils\SentryBootstrap::init();
+
 // 에러 핸들러 설정
 set_error_handler(function (int $errno, string $errstr, string $errfile, int $errline): bool {
   if (!(error_reporting() & $errno)) {

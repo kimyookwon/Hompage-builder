@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next';
+import { withSentryConfig } from '@sentry/nextjs';
 
 const API_ORIGIN = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api').replace(/\/api$/, '');
 
@@ -43,4 +44,20 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// SENTRY_DSN이 설정된 경우에만 Sentry 래핑 적용 (빌드 영향 최소화)
+export default process.env.NEXT_PUBLIC_SENTRY_DSN
+  ? withSentryConfig(nextConfig, {
+      org: process.env.SENTRY_ORG,
+      project: process.env.SENTRY_PROJECT,
+      // 빌드 로그 억제
+      silent: true,
+      // 더 많은 클라이언트 파일 업로드
+      widenClientFileUpload: true,
+      // 번들에서 소스맵 숨김 (sourcemaps.deleteSourcemapsAfterUpload)
+      sourcemaps: { deleteSourcemapsAfterUpload: true },
+      // Sentry SDK 내부 로거 비활성화 (번들 크기 절감)
+      disableLogger: true,
+      // Vercel 자동 모니터 비활성화
+      automaticVercelMonitors: false,
+    })
+  : nextConfig;

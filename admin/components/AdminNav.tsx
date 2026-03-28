@@ -21,6 +21,7 @@ import {
   Paperclip,
   Bell,
   History,
+  HeartPulse,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useTheme } from 'next-themes';
@@ -41,6 +42,7 @@ const navItems = [
   { href: '/admin/notices', label: '공지 관리', icon: Bell },
   { href: '/admin/logs', label: '활동 로그', icon: History },
   { href: '/admin/settings', label: '사이트 설정', icon: Settings },
+  { href: '/admin/health', label: '시스템 상태', icon: HeartPulse },
 ];
 
 export function AdminNav() {
