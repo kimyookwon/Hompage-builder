@@ -74,6 +74,7 @@ $router->get('/api/me/notifications', [\App\Controllers\ProfileController::class
 
 // ─── 회원 ───────────────────────────────────────────────
 $router->get('/api/users', [\App\Controllers\UserController::class, 'list']);
+$router->get('/api/users/{id}/profile', [\App\Controllers\UserController::class, 'publicProfile']);
 $router->get('/api/users/{id}', [\App\Controllers\UserController::class, 'show']);
 $router->patch('/api/users/{id}/role', [\App\Controllers\UserController::class, 'updateRole']);
 $router->patch('/api/users/{id}/status', [\App\Controllers\UserController::class, 'updateStatus']);

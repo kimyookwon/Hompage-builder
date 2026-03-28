@@ -178,3 +178,24 @@ export interface SiteSettings {
   robotsTxt: string | null;
   updatedAt: string;
 }
+
+// 공개 프로필 최근 게시글 항목
+export interface PublicProfilePost {
+  id: number;
+  title: string;
+  boardName: string;
+  boardId: number;
+  createdAt: string;
+}
+
+// 공개 사용자 프로필
+export interface PublicUserProfile {
+  id: number;
+  name: string;
+  avatarUrl: string | null;
+  role: 'admin' | 'user';
+  createdAt: string;
+  postCount: number;
+  commentCount: number;
+  recentPosts: PublicProfilePost[];
+}

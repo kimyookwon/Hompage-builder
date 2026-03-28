@@ -7,11 +7,21 @@ use App\Middleware\AuthMiddleware;
 use App\Utils\ResponseHelper;
 
 class StatsController {
-  // GET /api/admin/stats — 대시보드 통계
+  /** 허용되는 기간(일) 목록 */
+  private const ALLOWED_DAYS = [7, 14, 30, 90];
+
+  // GET /api/admin/stats?days=14 — 대시보드 통계
   public function index(): void {
     AuthMiddleware::requireAdmin();
 
     $pdo = Database::getInstance();
+
+    // 기간 파라미터 (기본 14일, 허용: 7/14/30/90)
+    $days = (int) ($_GET['days'] ?? 14);
+    if (!in_array($days, self::ALLOWED_DAYS, true)) {
+      $days = 14;
+    }
+    $interval = $days - 1;
 
     $stats = [
       'total_users' => (int) $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn(),
@@ -32,27 +42,33 @@ class StatsController {
        ORDER BY p.created_at DESC LIMIT 10'
     )->fetchAll();
 
-    // 최근 14일 일별 통계
-    $dailyPosts = $pdo->query(
+    // 일별 통계 (동적 기간)
+    $dailyPosts = $pdo->prepare(
       "SELECT DATE(created_at) AS date, COUNT(*) AS count
        FROM posts
-       WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 13 DAY)
+       WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL :interval DAY)
        GROUP BY DATE(created_at)"
-    )->fetchAll();
+    );
+    $dailyPosts->execute(['interval' => $interval]);
+    $dailyPosts = $dailyPosts->fetchAll();
 
-    $dailyUsers = $pdo->query(
+    $dailyUsers = $pdo->prepare(
       "SELECT DATE(created_at) AS date, COUNT(*) AS count
        FROM users
-       WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 13 DAY)
+       WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL :interval DAY)
        GROUP BY DATE(created_at)"
-    )->fetchAll();
+    );
+    $dailyUsers->execute(['interval' => $interval]);
+    $dailyUsers = $dailyUsers->fetchAll();
 
-    $dailyComments = $pdo->query(
+    $dailyComments = $pdo->prepare(
       "SELECT DATE(created_at) AS date, COUNT(*) AS count
        FROM comments
-       WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 13 DAY)
+       WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL :interval DAY)
        GROUP BY DATE(created_at)"
-    )->fetchAll();
+    );
+    $dailyComments->execute(['interval' => $interval]);
+    $dailyComments = $dailyComments->fetchAll();
 
     // 날짜 키로 변환
     $toMap = fn(array $rows) => array_column($rows, 'count', 'date');
@@ -60,9 +76,9 @@ class StatsController {
     $usersMap = $toMap($dailyUsers);
     $commentsMap = $toMap($dailyComments);
 
-    // 최근 14일 날짜 배열 생성
+    // 날짜 배열 생성 (동적 기간)
     $dailyStats = [];
-    for ($i = 13; $i >= 0; $i--) {
+    for ($i = $interval; $i >= 0; $i--) {
       $date = date('Y-m-d', strtotime("-{$i} days"));
       $dailyStats[] = [
         'date'     => $date,
@@ -72,10 +88,62 @@ class StatsController {
       ];
     }
 
+    // 게시판별 게시글 분포
+    $boardDist = $pdo->query(
+      "SELECT b.name AS board_name, COUNT(p.id) AS count
+       FROM boards b
+       LEFT JOIN posts p ON p.board_id = b.id
+       GROUP BY b.id, b.name
+       ORDER BY count DESC"
+    )->fetchAll();
+
+    $boardDistribution = array_map(fn(array $row) => [
+      'boardName' => $row['board_name'],
+      'count'     => (int) $row['count'],
+    ], $boardDist);
+
+    // 이번 달 vs 지난달 비교
+    $thisMonthStart = date('Y-m-01');
+    $lastMonthStart = date('Y-m-01', strtotime('-1 month'));
+    $lastMonthEnd = date('Y-m-t', strtotime('-1 month'));
+
+    $stmtPostsThis = $pdo->prepare(
+      "SELECT COUNT(*) FROM posts WHERE created_at >= :start"
+    );
+    $stmtPostsThis->execute(['start' => $thisMonthStart]);
+    $postsThisMonth = (int) $stmtPostsThis->fetchColumn();
+
+    $stmtPostsLast = $pdo->prepare(
+      "SELECT COUNT(*) FROM posts WHERE created_at >= :start AND created_at <= :end"
+    );
+    $stmtPostsLast->execute(['start' => $lastMonthStart, 'end' => $lastMonthEnd . ' 23:59:59']);
+    $postsLastMonth = (int) $stmtPostsLast->fetchColumn();
+
+    $stmtUsersThis = $pdo->prepare(
+      "SELECT COUNT(*) FROM users WHERE created_at >= :start"
+    );
+    $stmtUsersThis->execute(['start' => $thisMonthStart]);
+    $usersThisMonth = (int) $stmtUsersThis->fetchColumn();
+
+    $stmtUsersLast = $pdo->prepare(
+      "SELECT COUNT(*) FROM users WHERE created_at >= :start AND created_at <= :end"
+    );
+    $stmtUsersLast->execute(['start' => $lastMonthStart, 'end' => $lastMonthEnd . ' 23:59:59']);
+    $usersLastMonth = (int) $stmtUsersLast->fetchColumn();
+
+    $monthlyComparison = [
+      'postsThisMonth' => $postsThisMonth,
+      'postsLastMonth' => $postsLastMonth,
+      'usersThisMonth' => $usersThisMonth,
+      'usersLastMonth' => $usersLastMonth,
+    ];
+
     ResponseHelper::success([
-      'stats'        => $stats,
-      'recent_posts' => $recent,
-      'daily_stats'  => $dailyStats,
+      'stats'              => $stats,
+      'recent_posts'       => $recent,
+      'daily_stats'        => $dailyStats,
+      'board_distribution' => $boardDistribution,
+      'monthly_comparison' => $monthlyComparison,
     ]);
   }
 }

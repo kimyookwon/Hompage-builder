@@ -1,11 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { AdminLayout } from '@/components/AdminLayout';
 import { StatsCards } from '@/components/dashboard/StatsCards';
 import { RecentPostsTable } from '@/components/dashboard/RecentPostsTable';
 import { QuickLinks } from '@/components/dashboard/QuickLinks';
 import { DailyChart } from '@/components/dashboard/DailyChart';
+import { MultiLineChart } from '@/components/dashboard/MultiLineChart';
+import { BoardDistributionChart } from '@/components/dashboard/BoardDistributionChart';
+import { MonthlyComparisonCard } from '@/components/dashboard/MonthlyComparisonCard';
 import { api } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -34,21 +37,44 @@ interface DailyStat {
   comments: number;
 }
 
+interface BoardDistItem {
+  boardName: string;
+  count: number;
+}
+
+interface MonthlyComparison {
+  postsThisMonth: number;
+  postsLastMonth: number;
+  usersThisMonth: number;
+  usersLastMonth: number;
+}
+
 interface DashboardData {
   stats: DashboardStats;
   recentPosts: RecentPost[];
   dailyStats: DailyStat[];
+  boardDistribution: BoardDistItem[];
+  monthlyComparison: MonthlyComparison;
 }
 
 export default function AdminDashboardPage() {
   const { user } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);
+  const [days, setDays] = useState(14);
 
-  useEffect(() => {
-    api.get<DashboardData>('/admin/stats')
+  const fetchStats = useCallback((d: number) => {
+    api.get<DashboardData>(`/admin/stats?days=${d}`)
       .then((res) => setData(res.data))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    fetchStats(days);
+  }, [days, fetchStats]);
+
+  const handleDaysChange = (newDays: number) => {
+    setDays(newDays);
+  };
 
   return (
     <AdminLayout>
@@ -63,9 +89,31 @@ export default function AdminDashboardPage() {
         {data ? (
           <>
             <StatsCards stats={data.stats} />
+
+            {/* 일별 바 차트 (기간 선택 포함) */}
             {data.dailyStats?.length > 0 && (
-              <DailyChart data={data.dailyStats} />
+              <DailyChart
+                data={data.dailyStats}
+                days={days}
+                onDaysChange={handleDaysChange}
+              />
             )}
+
+            {/* 종합 추이 라인 차트 */}
+            {data.dailyStats?.length > 0 && (
+              <MultiLineChart data={data.dailyStats} />
+            )}
+
+            {/* 게시판 분포 + 월간 비교 (2열) */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {data.boardDistribution && (
+                <BoardDistributionChart data={data.boardDistribution} />
+              )}
+              {data.monthlyComparison && (
+                <MonthlyComparisonCard data={data.monthlyComparison} />
+              )}
+            </div>
+
             <div>
               <h2 className="text-lg font-semibold mb-3">최근 게시글</h2>
               <RecentPostsTable posts={data.recentPosts} />

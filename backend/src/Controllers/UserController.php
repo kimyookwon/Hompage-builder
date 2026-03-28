@@ -4,6 +4,7 @@ namespace App\Controllers;
 
 use App\Config\Database;
 use App\Models\User;
+use App\Models\Post;
 use App\Middleware\AuthMiddleware;
 use App\Utils\PasswordHash;
 use App\Utils\ResponseHelper;
@@ -70,6 +71,67 @@ class UserController {
     if (!$user) ResponseHelper::error('회원을 찾을 수 없습니다.', 404);
 
     ResponseHelper::success(User::updateStatus((int) $id, $status));
+  }
+
+  // GET /api/users/{id}/profile — 공개 프로필 (인증 불필요)
+  public function publicProfile(string $id): void {
+    $userId = (int) $id;
+    if ($userId <= 0) {
+      ResponseHelper::error('유효하지 않은 사용자 ID입니다.', 400);
+    }
+
+    $pdo = Database::getInstance();
+
+    // 사용자 기본 정보 조회 (이메일 제외)
+    $stmt = $pdo->prepare(
+      'SELECT id, name, avatar_url, role, status, created_at FROM users WHERE id = ?'
+    );
+    $stmt->execute([$userId]);
+    $user = $stmt->fetch();
+
+    // 존재하지 않거나 차단된 사용자는 404 반환
+    if (!$user || $user['status'] === 'blocked') {
+      ResponseHelper::error('사용자를 찾을 수 없습니다.', 404);
+    }
+
+    // 게시글 수 조회
+    $postCountStmt = $pdo->prepare('SELECT COUNT(*) FROM posts WHERE author_id = ?');
+    $postCountStmt->execute([$userId]);
+    $postCount = (int) $postCountStmt->fetchColumn();
+
+    // 댓글 수 조회
+    $commentCountStmt = $pdo->prepare('SELECT COUNT(*) FROM comments WHERE author_id = ?');
+    $commentCountStmt->execute([$userId]);
+    $commentCount = (int) $commentCountStmt->fetchColumn();
+
+    // 최근 게시글 5개 조회 (게시판명 포함)
+    $recentPostsStmt = $pdo->prepare(
+      'SELECT p.id, p.title, p.created_at, b.id AS board_id, b.name AS board_name
+       FROM posts p
+       JOIN boards b ON b.id = p.board_id
+       WHERE p.author_id = ?
+       ORDER BY p.created_at DESC
+       LIMIT 5'
+    );
+    $recentPostsStmt->execute([$userId]);
+    $recentPosts = $recentPostsStmt->fetchAll();
+
+    ResponseHelper::success([
+      'id'           => (int) $user['id'],
+      'name'         => $user['name'],
+      'avatarUrl'    => $user['avatar_url'],
+      'role'         => $user['role'],
+      'createdAt'    => $user['created_at'],
+      'postCount'    => $postCount,
+      'commentCount' => $commentCount,
+      'recentPosts'  => array_map(fn($p) => [
+        'id'        => (int) $p['id'],
+        'title'     => $p['title'],
+        'boardName' => $p['board_name'],
+        'boardId'   => (int) $p['board_id'],
+        'createdAt' => $p['created_at'],
+      ], $recentPosts),
+    ]);
   }
 
   // DELETE /api/users/{id} — 강제 탈퇴
