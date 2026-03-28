@@ -20,34 +20,77 @@ class SearchController {
     try {
       $pdo    = Database::getInstance();
       $offset = ($page - 1) * $limit;
-      $like   = "%{$q}%";
 
-      // 공개 게시판(read_permission = 'public' 또는 'user')의 게시글만 검색
-      $stmt = $pdo->prepare(
-        "SELECT p.id, p.title, p.content, p.created_at,
-                u.name AS author_name,
-                b.id AS board_id, b.name AS board_name,
-                (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comment_count,
-                p.view_count
-         FROM posts p
-         JOIN users u ON u.id = p.author_id
-         JOIN boards b ON b.id = p.board_id
-         WHERE b.read_permission IN ('public', 'user')
-           AND (p.title LIKE ? OR p.content LIKE ?)
-         ORDER BY p.created_at DESC
-         LIMIT ? OFFSET ?"
-      );
-      $stmt->execute([$like, $like, $limit, $offset]);
-      $rows = $stmt->fetchAll();
+      // FULLTEXT(ngram) 우선 시도 — 2자 미만 키워드는 LIKE 폴백
+      $useFulltext = mb_strlen($q) >= 2;
+      $rows  = [];
+      $total = 0;
 
-      $countStmt = $pdo->prepare(
-        "SELECT COUNT(*) FROM posts p
-         JOIN boards b ON b.id = p.board_id
-         WHERE b.read_permission IN ('public', 'user')
-           AND (p.title LIKE ? OR p.content LIKE ?)"
-      );
-      $countStmt->execute([$like, $like]);
-      $total = (int) $countStmt->fetchColumn();
+      if ($useFulltext) {
+        // MATCH...AGAINST Boolean Mode: 관련성 내림차순, 최신순 보조 정렬
+        $ftQuery = '"' . str_replace('"', '', $q) . '"';
+        $stmt = $pdo->prepare(
+          "SELECT p.id, p.title, p.content, p.created_at,
+                  u.name AS author_name,
+                  b.id AS board_id, b.name AS board_name,
+                  (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comment_count,
+                  p.view_count,
+                  MATCH(p.title, p.content) AGAINST (? IN BOOLEAN MODE) AS relevance
+           FROM posts p
+           JOIN users u ON u.id = p.author_id
+           JOIN boards b ON b.id = p.board_id
+           WHERE b.read_permission IN ('public', 'user')
+             AND MATCH(p.title, p.content) AGAINST (? IN BOOLEAN MODE)
+           ORDER BY relevance DESC, p.created_at DESC
+           LIMIT ? OFFSET ?"
+        );
+        $stmt->execute([$ftQuery, $ftQuery, $limit, $offset]);
+        $rows = $stmt->fetchAll();
+
+        $countStmt = $pdo->prepare(
+          "SELECT COUNT(*) FROM posts p
+           JOIN boards b ON b.id = p.board_id
+           WHERE b.read_permission IN ('public', 'user')
+             AND MATCH(p.title, p.content) AGAINST (? IN BOOLEAN MODE)"
+        );
+        $countStmt->execute([$ftQuery]);
+        $total = (int) $countStmt->fetchColumn();
+
+        // FULLTEXT 결과 없으면 LIKE 폴백
+        if ($total === 0) {
+          $useFulltext = false;
+        }
+      }
+
+      if (!$useFulltext) {
+        // LIKE 폴백 (짧은 키워드 또는 FULLTEXT 무결과 시)
+        $like  = "%{$q}%";
+        $stmt = $pdo->prepare(
+          "SELECT p.id, p.title, p.content, p.created_at,
+                  u.name AS author_name,
+                  b.id AS board_id, b.name AS board_name,
+                  (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comment_count,
+                  p.view_count
+           FROM posts p
+           JOIN users u ON u.id = p.author_id
+           JOIN boards b ON b.id = p.board_id
+           WHERE b.read_permission IN ('public', 'user')
+             AND (p.title LIKE ? OR p.content LIKE ?)
+           ORDER BY p.created_at DESC
+           LIMIT ? OFFSET ?"
+        );
+        $stmt->execute([$like, $like, $limit, $offset]);
+        $rows = $stmt->fetchAll();
+
+        $countStmt = $pdo->prepare(
+          "SELECT COUNT(*) FROM posts p
+           JOIN boards b ON b.id = p.board_id
+           WHERE b.read_permission IN ('public', 'user')
+             AND (p.title LIKE ? OR p.content LIKE ?)"
+        );
+        $countStmt->execute([$like, $like]);
+        $total = (int) $countStmt->fetchColumn();
+      }
 
       // 본문 미리보기 — 검색어 주변 80자
       $items = array_map(function (array $row) use ($q): array {
