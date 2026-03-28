@@ -11,6 +11,11 @@ RUN apk add --no-cache \
   zip \
   unzip
 
+# GD — JPEG + WebP 지원 명시적 설정
+RUN docker-php-ext-configure gd \
+  --with-jpeg=/usr/include \
+  --with-webp=/usr/include
+
 # PHP 확장 설치
 RUN docker-php-ext-install \
   pdo \

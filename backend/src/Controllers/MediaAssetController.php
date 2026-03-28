@@ -34,7 +34,8 @@ class MediaAssetController {
         $fileInfo['file_url'],
         $fileInfo['mime_type'],
         $fileInfo['file_size'],
-        (int) $payload->sub
+        (int) $payload->sub,
+        $fileInfo['thumb_url'] ?? null
       );
       ResponseHelper::success($asset, 201);
     } catch (\RuntimeException $e) {

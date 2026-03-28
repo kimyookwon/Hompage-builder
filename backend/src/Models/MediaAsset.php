@@ -5,13 +5,13 @@ namespace App\Models;
 use App\Config\Database;
 
 class MediaAsset {
-  // 미디어 파일 생성
-  public static function create(string $filename, string $fileUrl, string $mimeType, int $fileSize, int $uploadedBy): array {
+  // 미디어 파일 생성 (썸네일 URL 포함)
+  public static function create(string $filename, string $fileUrl, string $mimeType, int $fileSize, int $uploadedBy, ?string $thumbUrl = null): array {
     $pdo = Database::getInstance();
     $stmt = $pdo->prepare(
-      'INSERT INTO media_assets (filename, file_url, mime_type, file_size, uploaded_by) VALUES (?, ?, ?, ?, ?)'
+      'INSERT INTO media_assets (filename, file_url, thumb_url, mime_type, file_size, uploaded_by) VALUES (?, ?, ?, ?, ?, ?)'
     );
-    $stmt->execute([$filename, $fileUrl, $mimeType, $fileSize, $uploadedBy]);
+    $stmt->execute([$filename, $fileUrl, $thumbUrl, $mimeType, $fileSize, $uploadedBy]);
     $id = (int) $pdo->lastInsertId();
 
     $stmt = $pdo->prepare('SELECT * FROM media_assets WHERE id = ?');
