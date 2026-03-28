@@ -28,3 +28,25 @@ Thumbs.db
 
 # Docker 볼륨 데이터
 mysql_data/
+
+# 테스트 인증 상태 (JWT 토큰 포함)
+admin/tests/.auth/
+admin/test-results/
+
+# Claude Code 로컬 설정
+.claude/settings.local.json
+
+# 민감한 메모 파일
+*.txt
+!README.txt
+
+# 업로드된 파일 (바이너리)
+backend/public/uploads/
+
+# 빌드 캐시
+admin/tsconfig.tsbuildinfo
+
+# Word 임시 파일 및 바이너리 문서
+docs/~$*
+*.docx
+*.docm
