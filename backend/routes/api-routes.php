@@ -64,6 +64,7 @@ $router->post('/api/media/upload', [\App\Controllers\MediaAssetController::class
 $router->delete('/api/media/{id}', [\App\Controllers\MediaAssetController::class, 'delete']);
 
 // ─── 마이페이지 ──────────────────────────────────────────
+$router->get('/api/me/points', [\App\Controllers\ProfileController::class, 'pointHistory']);
 $router->patch('/api/me', [\App\Controllers\ProfileController::class, 'update']);
 $router->patch('/api/me/password', [\App\Controllers\ProfileController::class, 'updatePassword']);
 $router->patch('/api/me/avatar', [\App\Controllers\ProfileController::class, 'updateAvatar']);
@@ -98,6 +99,9 @@ $router->get('/api/tags/popular', function (): void {
   $tags = \App\Models\Tag::popular(null, 30);
   \App\Utils\ResponseHelper::success($tags);
 });
+
+// ─── 인기 게시글 ────────────────────────────────────────
+$router->get('/api/posts/popular', [\App\Controllers\PostController::class, 'popular']);
 
 // ─── 게시글 ─────────────────────────────────────────────
 $router->get('/api/boards/{id}/posts', [\App\Controllers\PostController::class, 'list']);
@@ -141,6 +145,14 @@ $router->post('/api/admin/users/bulk', [\App\Controllers\BulkController::class, 
 
 // ─── 첨부파일 통계 (관리자) ──────────────────────────────
 $router->get('/api/admin/attachments', [\App\Controllers\AttachmentController::class, 'adminStats']);
+
+// ─── 공지 시스템 ────────────────────────────────────────
+$router->get('/api/notices', [\App\Controllers\NoticeController::class, 'list']);
+$router->get('/api/admin/notices', [\App\Controllers\NoticeController::class, 'adminList']);
+$router->post('/api/admin/notices', [\App\Controllers\NoticeController::class, 'create']);
+$router->patch('/api/admin/notices/{id}', [\App\Controllers\NoticeController::class, 'update']);
+$router->delete('/api/admin/notices/{id}', [\App\Controllers\NoticeController::class, 'delete']);
+$router->patch('/api/admin/notices/{id}/toggle', [\App\Controllers\NoticeController::class, 'toggle']);
 
 // ─── 통계 ───────────────────────────────────────────────
 $router->get('/api/admin/stats', [\App\Controllers\StatsController::class, 'index']);

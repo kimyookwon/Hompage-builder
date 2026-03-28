@@ -138,9 +138,21 @@ class StatsController {
       'usersLastMonth' => $usersLastMonth,
     ];
 
+    // 인기 게시글 TOP 10 (조회수 기준)
+    $popularPosts = $pdo->query(
+      'SELECT p.id, p.title, p.view_count, p.like_count, p.created_at,
+              u.name AS author_name, b.id AS board_id, b.name AS board_name,
+              (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comment_count
+       FROM posts p
+       JOIN users u ON u.id = p.author_id
+       JOIN boards b ON b.id = p.board_id
+       ORDER BY p.view_count DESC LIMIT 10'
+    )->fetchAll();
+
     ResponseHelper::success([
       'stats'              => $stats,
       'recent_posts'       => $recent,
+      'popular_posts'      => $popularPosts,
       'daily_stats'        => $dailyStats,
       'board_distribution' => $boardDistribution,
       'monthly_comparison' => $monthlyComparison,

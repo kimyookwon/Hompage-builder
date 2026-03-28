@@ -10,6 +10,8 @@ export interface User {
   role: UserRole;
   status: 'active' | 'blocked';
   oauthProvider?: 'google' | 'kakao' | 'naver';
+  points?: number;
+  level?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -108,6 +110,7 @@ export interface Post {
   boardId: number;
   authorId: number;
   authorName: string;
+  authorLevel?: number;
   boardName?: string;
   title: string;
   content: string;
@@ -179,9 +182,25 @@ export interface Comment {
   authorId: number;
   authorName: string;
   authorAvatarUrl?: string | null;
+  authorLevel?: number;
   content: string;
   createdAt: string;
   updatedAt: string;
+}
+
+// 포인트 내역 타입
+export interface PointLog {
+  id: number;
+  points: number;
+  reason: string;
+  refId: number | null;
+  createdAt: string;
+}
+
+// 포인트 내역 목록 응답 타입
+export interface PointHistoryData {
+  items: PointLog[];
+  pagination: Pagination;
 }
 
 // 사이트 설정 타입
@@ -221,4 +240,17 @@ export interface PublicUserProfile {
   postCount: number;
   commentCount: number;
   recentPosts: PublicProfilePost[];
+}
+
+// 사이트 공지 타입
+export interface SiteNotice {
+  id: number;
+  title: string;
+  content: string;
+  type: 'info' | 'warning' | 'error' | 'success';
+  isActive: boolean;
+  startsAt: string | null;
+  endsAt: string | null;
+  sortOrder: number;
+  createdAt: string;
 }

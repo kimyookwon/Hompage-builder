@@ -139,6 +139,33 @@ class ProfileController {
     ResponseHelper::paginated($items, $total, $page, $limit);
   }
 
+  // GET /api/me/points -- 내 포인트 내역
+  public function pointHistory(): void {
+    $payload = AuthMiddleware::require();
+
+    $page  = max(1, (int) ($_GET['page']  ?? 1));
+    $limit = min(50, max(1, (int) ($_GET['limit'] ?? 20)));
+    $offset = ($page - 1) * $limit;
+
+    $pdo = Database::getInstance();
+
+    $stmt = $pdo->prepare(
+      'SELECT id, points, reason, ref_id, created_at
+       FROM point_logs
+       WHERE user_id = ?
+       ORDER BY created_at DESC
+       LIMIT ? OFFSET ?'
+    );
+    $stmt->execute([(int) $payload->sub, $limit, $offset]);
+    $items = $stmt->fetchAll();
+
+    $countStmt = $pdo->prepare('SELECT COUNT(*) FROM point_logs WHERE user_id = ?');
+    $countStmt->execute([(int) $payload->sub]);
+    $total = (int) $countStmt->fetchColumn();
+
+    ResponseHelper::paginated($items, $total, $page, $limit);
+  }
+
   // GET /api/me/bookmarks — 내 북마크 목록
   public function bookmarks(): void {
     $payload = AuthMiddleware::require();

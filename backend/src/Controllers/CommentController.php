@@ -7,6 +7,7 @@ use App\Models\Comment;
 use App\Models\Notification;
 use App\Middleware\AuthMiddleware;
 use App\Services\EmailService;
+use App\Utils\PointHelper;
 use App\Utils\ResponseHelper;
 
 class CommentController {
@@ -41,6 +42,12 @@ class CommentController {
     }
 
     $comment   = Comment::create((int) $postId, (int) $payload->sub, $content, $parentId);
+
+    // 댓글 작성 포인트 적립
+    try {
+      PointHelper::earn((int) $payload->sub, PointHelper::POINT_COMMENT, 'comment_create', (int) $comment['id']);
+    } catch (\Throwable) {}
+
     $actorName = $comment['author_name'] ?? '누군가';
     $boardId   = (int) ($post['board_id'] ?? 0);
     $postTitle = $post['title'] ?? '';

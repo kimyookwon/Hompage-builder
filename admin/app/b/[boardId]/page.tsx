@@ -9,6 +9,7 @@ import { formatDate } from '@/lib/date';
 import { useAuthStore } from '@/stores/authStore';
 import { Board, Post, Pagination as PaginationData } from '@/types';
 import PaginationUI from '@/components/common/Pagination';
+import { PopularPosts } from '@/components/common/PopularPosts';
 
 interface PostsData {
   items: Post[];
@@ -132,7 +133,9 @@ function BoardPageInner() {
   const isGallery = board?.type === 'gallery';
 
   return (
-    <div className="max-w-4xl mx-auto px-6 py-8">
+    <div className="max-w-5xl mx-auto px-6 py-8 lg:flex lg:gap-6 lg:items-start">
+      {/* 메인 콘텐츠 영역 */}
+      <div className="flex-1 min-w-0">
       {/* 게시판 헤더 */}
       <div className="flex items-center justify-between mb-5">
         <div>
@@ -331,6 +334,12 @@ function BoardPageInner() {
           className="mt-6"
         />
       )}
+      </div>{/* 메인 콘텐츠 끝 */}
+
+      {/* 인기 게시글 사이드바 위젯 — 모바일 숨김 */}
+      <div className="hidden md:block w-60 shrink-0 sticky top-6">
+        <PopularPosts boardId={boardId} limit={5} />
+      </div>
     </div>
   );
 }

@@ -6,9 +6,10 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
-import { User, Post, Pagination as PaginationData, BookmarkedPost } from '@/types';
+import { User, Post, Pagination as PaginationData, BookmarkedPost, PointLog, PointHistoryData } from '@/types';
 import PaginationUI from '@/components/common/Pagination';
 import { formatDate } from '@/lib/date';
+import { LevelBadge } from '@/components/common/LevelBadge';
 
 interface MediaAsset { id: number; file_url: string; }
 
@@ -52,7 +53,14 @@ export default function MyPage() {
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
   // 탭 상태
-  const [activeTab, setActiveTab] = useState<'posts' | 'bookmarks'>('posts');
+  const [activeTab, setActiveTab] = useState<'posts' | 'bookmarks' | 'points'>('posts');
+
+  // 포인트 내역 상태
+  const [pointLogs, setPointLogs] = useState<PointLog[]>([]);
+  const [pointPagination, setPointPagination] = useState<PaginationData | null>(null);
+  const [pointPage, setPointPage] = useState(1);
+  const [loadingPoints, setLoadingPoints] = useState(false);
+  const [pointsError, setPointsError] = useState('');
 
   const [posts, setPosts] = useState<MyPostsData['items']>([]);
   const [pagination, setPagination] = useState<PaginationData | null>(null);
@@ -124,6 +132,20 @@ export default function MyPage() {
     fetchMyPosts(page);
   }, [hasHydrated, user, fetchMyPosts, page]);
 
+  const fetchPointLogs = useCallback(async (p: number) => {
+    setLoadingPoints(true);
+    setPointsError('');
+    try {
+      const res = await api.get<PointHistoryData>(`/me/points?page=${p}&limit=20`);
+      setPointLogs(res.data.items);
+      setPointPagination(res.data.pagination);
+    } catch {
+      setPointsError('포인트 내역을 불러오지 못했습니다.');
+    } finally {
+      setLoadingPoints(false);
+    }
+  }, []);
+
   // 북마크 탭 활성화 시 데이터 로드
   useEffect(() => {
     if (!hasHydrated || !user) return;
@@ -131,6 +153,14 @@ export default function MyPage() {
       fetchBookmarks(bookmarkPage);
     }
   }, [activeTab, bookmarkPage, hasHydrated, user, fetchBookmarks]);
+
+  // 포인트 탭 활성화 시 데이터 로드
+  useEffect(() => {
+    if (!hasHydrated || !user) return;
+    if (activeTab === 'points') {
+      fetchPointLogs(pointPage);
+    }
+  }, [activeTab, pointPage, hasHydrated, user, fetchPointLogs]);
 
   const handleNameSave = async () => {
     if (!editName.trim()) {
@@ -282,6 +312,17 @@ export default function MyPage() {
         {/* 이름 편집 */}
         <div className="flex items-start gap-3">
           <span className="w-16 text-xs text-gray-500 shrink-0 pt-1.5">이름</span>
+          {/* 레벨 배지 + 포인트 */}
+          {!isEditingName && (user.level !== undefined || user.points !== undefined) && (
+            <div className="flex items-center gap-2 mb-1">
+              {user.level !== undefined && (
+                <LevelBadge level={user.level} points={user.points} size="md" />
+              )}
+              {user.points !== undefined && (
+                <span className="text-sm text-gray-500">{user.points.toLocaleString()} P</span>
+              )}
+            </div>
+          )}
           {isEditingName ? (
             <div className="flex-1 space-y-2">
               <input
@@ -419,6 +460,16 @@ export default function MyPage() {
           >
             북마크
           </button>
+          <button
+            onClick={() => setActiveTab('points')}
+            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              activeTab === 'points'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            포인트
+          </button>
         </div>
 
         {/* 내 게시글 탭 */}
@@ -464,6 +515,55 @@ export default function MyPage() {
                     page={page}
                     totalPages={pagination.totalPages}
                     onChange={(p) => setPage(p)}
+                    className="pt-2"
+                  />
+                )}
+              </>
+            )}
+          </>
+        )}
+
+        {/* 포인트 내역 탭 */}
+        {activeTab === 'points' && (
+          <>
+            {pointsError && (
+              <p className="text-sm text-red-500 py-2">{pointsError}</p>
+            )}
+
+            {loadingPoints ? (
+              <div className="flex justify-center py-8">
+                <div className="h-6 w-6 rounded-full border-4 border-blue-500 border-t-transparent animate-spin" />
+              </div>
+            ) : pointLogs.length === 0 ? (
+              <p className="text-center py-10 text-sm text-gray-400">포인트 내역이 없습니다.</p>
+            ) : (
+              <>
+                <div className="border rounded-lg divide-y">
+                  {pointLogs.map((log) => (
+                    <div
+                      key={log.id}
+                      className="flex items-center justify-between px-4 py-3"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-gray-800">{log.reason}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{formatDate(log.createdAt)}</p>
+                      </div>
+                      <span
+                        className={`text-sm font-semibold shrink-0 ml-4 ${
+                          log.points >= 0 ? 'text-green-600' : 'text-red-500'
+                        }`}
+                      >
+                        {log.points >= 0 ? `+${log.points}` : log.points} P
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {pointPagination && (
+                  <PaginationUI
+                    page={pointPage}
+                    totalPages={pointPagination.totalPages}
+                    onChange={(p) => setPointPage(p)}
                     className="pt-2"
                   />
                 )}

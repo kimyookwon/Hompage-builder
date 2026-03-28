@@ -48,7 +48,7 @@ class AuthController {
 
     $token = JwtHandler::generate($userId, 'user');
 
-    $stmt = $pdo->prepare('SELECT id, email, name, avatar_url, role, oauth_provider, status, created_at, updated_at FROM users WHERE id = ?');
+    $stmt = $pdo->prepare('SELECT id, email, name, avatar_url, role, oauth_provider, status, points, level, created_at, updated_at FROM users WHERE id = ?');
     $stmt->execute([$userId]);
     $newUser = $stmt->fetch();
 
@@ -90,7 +90,7 @@ class AuthController {
 
     $token = JwtHandler::generate((int) $user['id'], $user['role']);
 
-    $stmt = $pdo->prepare('SELECT id, email, name, avatar_url, role, oauth_provider, status, created_at, updated_at FROM users WHERE id = ?');
+    $stmt = $pdo->prepare('SELECT id, email, name, avatar_url, role, oauth_provider, status, points, level, created_at, updated_at FROM users WHERE id = ?');
     $stmt->execute([(int) $user['id']]);
     $fullUser = $stmt->fetch();
 
@@ -111,7 +111,7 @@ class AuthController {
     $payload = AuthMiddleware::require();
 
     $pdo = Database::getInstance();
-    $stmt = $pdo->prepare('SELECT id, email, name, avatar_url, role, oauth_provider, status, created_at, updated_at FROM users WHERE id = ?');
+    $stmt = $pdo->prepare('SELECT id, email, name, avatar_url, role, oauth_provider, status, points, level, created_at, updated_at FROM users WHERE id = ?');
     $stmt->execute([$payload->sub]);
     $user = $stmt->fetch();
 

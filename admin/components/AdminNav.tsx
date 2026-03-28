@@ -19,6 +19,7 @@ import {
   Sun,
   Flag,
   Paperclip,
+  Bell,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useTheme } from 'next-themes';
@@ -35,6 +36,7 @@ const navItems = [
   { href: '/admin/media', label: '미디어 관리', icon: Image },
   { href: '/admin/attachments', label: '첨부파일 통계', icon: Paperclip },
   { href: '/admin/reports', label: '신고 관리', icon: Flag },
+  { href: '/admin/notices', label: '공지 관리', icon: Bell },
   { href: '/admin/settings', label: '사이트 설정', icon: Settings },
 ];
 

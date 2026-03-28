@@ -12,6 +12,7 @@ import { TagInput } from '@/components/common/TagInput';
 import { useAuthStore } from '@/stores/authStore';
 import { Post, Comment, Board, AdjacentPost, PostAttachment } from '@/types';
 import AttachmentUploader from '@/components/common/AttachmentUploader';
+import { LevelBadge } from '@/components/common/LevelBadge';
 
 interface MediaAsset { id: number; file_url: string; }
 
@@ -290,6 +291,19 @@ export default function PublicPostPage() {
     }
   };
 
+  // 트위터(X) 공유
+  const handleTwitterShare = () => {
+    const url = encodeURIComponent(window.location.href);
+    const text = encodeURIComponent(post?.title ?? '');
+    window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank');
+  };
+
+  // 카카오스토리 URL 공유 (SDK 없이)
+  const handleKakaoShare = () => {
+    const url = encodeURIComponent(window.location.href);
+    window.open(`https://story.kakao.com/share?url=${url}`, '_blank');
+  };
+
   // 댓글 신고 핸들러
   const handleReport = async (commentId: number) => {
     if (!user) { router.push('/login'); return; }
@@ -463,7 +477,12 @@ export default function PublicPostPage() {
               <h1 className="text-xl font-bold text-gray-900">{post.title}</h1>
               <div className="flex items-center justify-between mt-2">
                 <div className="flex items-center gap-3 text-sm text-gray-500">
-                  <span>{post.authorName}</span>
+                  <span className="flex items-center gap-1.5">
+                    {post.authorName}
+                    {post.authorLevel !== undefined && (
+                      <LevelBadge level={post.authorLevel} />
+                    )}
+                  </span>
                   <span>·</span>
                   <span>{formatDateTime(post.createdAt)}</span>
                   {post.updatedAt !== post.createdAt && (
@@ -599,27 +618,54 @@ export default function PublicPostPage() {
                 {bookmarked ? '북마크됨' : '북마크'}
               </button>
 
-              {/* 공유 버튼 */}
-              <button
-                onClick={handleShare}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-full border bg-white border-gray-200 text-gray-500 text-sm font-medium hover:bg-gray-50 hover:border-gray-300 transition-all"
-              >
-                {copied ? (
-                  <>
-                    <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span className="text-green-500">복사됨</span>
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                    </svg>
-                    <span>공유</span>
-                  </>
-                )}
-              </button>
+              {/* 공유 버튼 영역 */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* 링크 복사 */}
+                <button
+                  onClick={handleShare}
+                  className="flex items-center gap-2 px-4 py-2 rounded-full border bg-white border-gray-200 text-gray-500 text-sm font-medium hover:bg-gray-50 hover:border-gray-300 transition-all"
+                >
+                  {copied ? (
+                    <>
+                      <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span className="text-green-500">복사됨</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                      </svg>
+                      <span>공유</span>
+                    </>
+                  )}
+                </button>
+
+                {/* 트위터(X) 공유 */}
+                <button
+                  onClick={handleTwitterShare}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-gray-200 text-gray-500 text-sm hover:bg-gray-50 transition-colors"
+                  aria-label="트위터로 공유"
+                >
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.259 5.63L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                  </svg>
+                  트위터
+                </button>
+
+                {/* 카카오스토리 공유 */}
+                <button
+                  onClick={handleKakaoShare}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-yellow-300 text-yellow-700 text-sm hover:bg-yellow-50 transition-colors"
+                  aria-label="카카오스토리로 공유"
+                >
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                    <path d="M12 3C6.477 3 2 6.477 2 10.95c0 2.963 1.822 5.547 4.548 7.037L5.5 21l3.91-2.053C10.24 19.3 11.105 19.4 12 19.4c5.523 0 10-3.477 10-7.95S17.523 3 12 3z" />
+                  </svg>
+                  카카오
+                </button>
+              </div>
             </div>
           </>
         )}
@@ -691,7 +737,12 @@ export default function PublicPostPage() {
                             {comment.authorName.charAt(0).toUpperCase()}
                           </span>
                         )}
-                        <span className="text-sm font-medium text-gray-800">{comment.authorName}</span>
+                        <span className="flex items-center gap-1.5 text-sm font-medium text-gray-800">
+                          {comment.authorName}
+                          {comment.authorLevel !== undefined && (
+                            <LevelBadge level={comment.authorLevel} />
+                          )}
+                        </span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-gray-400">{formatDateTime(comment.createdAt)}</span>
@@ -823,7 +874,12 @@ export default function PublicPostPage() {
                                 {reply.authorName.charAt(0).toUpperCase()}
                               </span>
                             )}
-                            <span className="text-sm font-medium text-gray-700">{reply.authorName}</span>
+                            <span className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
+                              {reply.authorName}
+                              {reply.authorLevel !== undefined && (
+                                <LevelBadge level={reply.authorLevel} />
+                              )}
+                            </span>
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-gray-400">{formatDateTime(reply.createdAt)}</span>

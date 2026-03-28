@@ -2,14 +2,53 @@
 
 namespace App\Controllers;
 
+use App\Config\Database;
 use App\Models\Board;
 use App\Models\Post;
 use App\Models\PostAttachment;
 use App\Models\Tag;
 use App\Middleware\AuthMiddleware;
+use App\Utils\PointHelper;
 use App\Utils\ResponseHelper;
 
 class PostController {
+  // GET /api/posts/popular -- 인기 게시글 목록
+  public function popular(): void {
+    try {
+      $type    = in_array($_GET['type'] ?? '', ['views', 'likes']) ? $_GET['type'] : 'views';
+      $boardId = !empty($_GET['board_id']) ? (int) $_GET['board_id'] : null;
+      $limit   = min(20, max(1, (int) ($_GET['limit'] ?? 10)));
+
+      $orderCol = $type === 'likes' ? 'p.like_count' : 'p.view_count';
+
+      $where  = '';
+      $params = [];
+      if ($boardId !== null) {
+        $where = 'WHERE p.board_id = ?';
+        $params[] = $boardId;
+      }
+
+      $pdo = Database::getInstance();
+      $sql = "SELECT p.id, p.title, p.view_count, p.like_count, p.created_at,
+                     u.name AS author_name, b.id AS board_id, b.name AS board_name,
+                     (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comment_count
+              FROM posts p
+              JOIN users u ON u.id = p.author_id
+              JOIN boards b ON b.id = p.board_id
+              {$where}
+              ORDER BY {$orderCol} DESC
+              LIMIT ?";
+      $params[] = $limit;
+
+      $stmt = $pdo->prepare($sql);
+      $stmt->execute($params);
+
+      ResponseHelper::success($stmt->fetchAll());
+    } catch (\Throwable $e) {
+      ResponseHelper::error('인기 게시글 조회에 실패했습니다.', 500);
+    }
+  }
+
   // GET /api/boards/{id}/posts — 게시글 목록
   public function list(string $boardId): void {
     $payload = null;
@@ -115,6 +154,11 @@ class PostController {
     Tag::syncPost((int) $post['id'], $tagIds);
     $post['tags'] = Tag::findByPost((int) $post['id']);
 
+    // 게시글 작성 포인트 적립
+    try {
+      PointHelper::earn((int) $payload->sub, PointHelper::POINT_POST_CREATE, 'post_create', (int) $post['id']);
+    } catch (\Throwable) {}
+
     ResponseHelper::success($post, 201);
   }
 
@@ -160,6 +204,17 @@ class PostController {
     if (!$post) ResponseHelper::error('게시글을 찾을 수 없습니다.', 404);
 
     $result = Post::toggleLike((int) $id, (int) $payload->sub);
+
+    // 좋아요 시 게시글 작성자에게 포인트 적립 (자기 자신 제외)
+    if ($result['liked']) {
+      try {
+        $authorId = (int) $post['author_id'];
+        if ($authorId !== (int) $payload->sub) {
+          PointHelper::earn($authorId, PointHelper::POINT_LIKE_RECEIVED, 'like_received', (int) $id);
+        }
+      } catch (\Throwable) {}
+    }
+
     ResponseHelper::success($result);
   }
 

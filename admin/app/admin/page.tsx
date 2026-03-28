@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { AdminLayout } from '@/components/AdminLayout';
 import { StatsCards } from '@/components/dashboard/StatsCards';
 import { RecentPostsTable } from '@/components/dashboard/RecentPostsTable';
+import { PopularPostsTable, type PopularPost } from '@/components/dashboard/PopularPostsTable';
 import { QuickLinks } from '@/components/dashboard/QuickLinks';
 import { DailyChart } from '@/components/dashboard/DailyChart';
 import { MultiLineChart } from '@/components/dashboard/MultiLineChart';
@@ -55,6 +56,8 @@ interface DashboardData {
   dailyStats: DailyStat[];
   boardDistribution: BoardDistItem[];
   monthlyComparison: MonthlyComparison;
+  // 인기 게시글 TOP 10 (조회수 기준)
+  popularPosts: PopularPost[];
 }
 
 export default function AdminDashboardPage() {
@@ -126,6 +129,14 @@ export default function AdminDashboardPage() {
               <h2 className="text-lg font-semibold mb-3">최근 게시글</h2>
               <RecentPostsTable posts={data.recentPosts} />
             </div>
+
+            {/* 인기 게시글 TOP 10 */}
+            {data.popularPosts?.length > 0 && (
+              <div>
+                <h2 className="text-lg font-semibold mb-3">인기 게시글 TOP 10</h2>
+                <PopularPostsTable posts={data.popularPosts} />
+              </div>
+            )}
           </>
         ) : (
           <div className="text-center py-12 text-muted-foreground">불러오는 중...</div>

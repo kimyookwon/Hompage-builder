@@ -1,5 +1,6 @@
 import PublicHeader from '@/components/public/PublicHeader';
 import NoticeBanner from '@/components/public/NoticeBanner';
+import { SiteNoticeBanner } from '@/components/common/SiteNoticeBanner';
 
 interface SiteSettingsRaw {
   site_name?: string;
@@ -30,6 +31,8 @@ export default async function BoardLayout({ children }: { children: React.ReactN
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: settings.background_color || '#ffffff' }}>
+      {/* 다이나믹 공지 배너 (API /notices 기반) */}
+      <SiteNoticeBanner />
       {showNotice && (
         <NoticeBanner
           text={settings.notice_text!}
