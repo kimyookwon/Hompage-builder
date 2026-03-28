@@ -45,6 +45,13 @@ export default function LoginPage() {
           <SocialLoginButtons />
 
           <p className="text-center text-sm text-muted-foreground">
+            비밀번호를 잊으셨나요?{' '}
+            <Link href="/forgot-password" className="text-primary hover:underline font-medium">
+              재설정
+            </Link>
+          </p>
+
+          <p className="text-center text-sm text-muted-foreground">
             계정이 없으신가요?{' '}
             <Link href="/register" className="text-primary hover:underline font-medium">
               회원가입

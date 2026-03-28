@@ -34,6 +34,9 @@ $router->post('/api/auth/register', [\App\Controllers\AuthController::class, 're
 $router->post('/api/auth/login', [\App\Controllers\AuthController::class, 'login']);
 $router->post('/api/auth/logout', [\App\Controllers\AuthController::class, 'logout']);
 $router->get('/api/auth/me', [\App\Controllers\AuthController::class, 'me']);
+$router->post('/api/auth/forgot-password', [\App\Controllers\PasswordResetController::class, 'requestReset']);
+$router->post('/api/auth/reset-password', [\App\Controllers\PasswordResetController::class, 'resetPassword']);
+$router->get('/api/auth/reset-password/verify', [\App\Controllers\PasswordResetController::class, 'verifyToken']);
 $router->get('/api/auth/oauth/{provider}/redirect', [\App\Controllers\OAuthController::class, 'redirect']);
 $router->post('/api/auth/oauth/{provider}/callback', [\App\Controllers\OAuthController::class, 'callback']);
 
