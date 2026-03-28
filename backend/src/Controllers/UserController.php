@@ -82,9 +82,12 @@ class UserController {
 
     $pdo = Database::getInstance();
 
-    // 사용자 기본 정보 조회 (이메일 제외)
+    // 사용자 기본 정보 + 게시글·댓글 수를 단일 쿼리로 조회 (4쿼리 → 2쿼리)
     $stmt = $pdo->prepare(
-      'SELECT id, name, avatar_url, role, status, created_at FROM users WHERE id = ?'
+      'SELECT u.id, u.name, u.avatar_url, u.role, u.status, u.created_at,
+              (SELECT COUNT(*) FROM posts   WHERE author_id = u.id) AS post_count,
+              (SELECT COUNT(*) FROM comments WHERE author_id = u.id) AS comment_count
+       FROM users u WHERE u.id = ?'
     );
     $stmt->execute([$userId]);
     $user = $stmt->fetch();
@@ -94,15 +97,8 @@ class UserController {
       ResponseHelper::error('사용자를 찾을 수 없습니다.', 404);
     }
 
-    // 게시글 수 조회
-    $postCountStmt = $pdo->prepare('SELECT COUNT(*) FROM posts WHERE author_id = ?');
-    $postCountStmt->execute([$userId]);
-    $postCount = (int) $postCountStmt->fetchColumn();
-
-    // 댓글 수 조회
-    $commentCountStmt = $pdo->prepare('SELECT COUNT(*) FROM comments WHERE author_id = ?');
-    $commentCountStmt->execute([$userId]);
-    $commentCount = (int) $commentCountStmt->fetchColumn();
+    $postCount    = (int) $user['post_count'];
+    $commentCount = (int) $user['comment_count'];
 
     // 최근 게시글 5개 조회 (게시판명 포함)
     $recentPostsStmt = $pdo->prepare(

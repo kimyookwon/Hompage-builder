@@ -61,11 +61,13 @@ export default function AdminDashboardPage() {
   const { user } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);
   const [days, setDays] = useState(14);
+  const [error, setError] = useState('');
 
   const fetchStats = useCallback((d: number) => {
+    setError('');
     api.get<DashboardData>(`/admin/stats?days=${d}`)
       .then((res) => setData(res.data))
-      .catch(() => {});
+      .catch(() => setError('통계 데이터를 불러오지 못했습니다.'));
   }, []);
 
   useEffect(() => {
@@ -85,6 +87,12 @@ export default function AdminDashboardPage() {
         </div>
 
         <QuickLinks />
+
+        {error && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-950 dark:border-red-800 dark:text-red-400">
+            {error}
+          </div>
+        )}
 
         {data ? (
           <>

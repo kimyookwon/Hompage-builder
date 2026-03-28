@@ -50,6 +50,7 @@ export default function MyPage() {
   const [pagination, setPagination] = useState<PaginationData | null>(null);
   const [page, setPage] = useState(1);
   const [loadingPosts, setLoadingPosts] = useState(true);
+  const [postsError, setPostsError] = useState('');
 
   // 비로그인 시 로그인 페이지로
   useEffect(() => {
@@ -76,12 +77,13 @@ export default function MyPage() {
 
   const fetchMyPosts = useCallback(async (p: number) => {
     setLoadingPosts(true);
+    setPostsError('');
     try {
       const res = await api.get<MyPostsData>(`/me/posts?page=${p}&limit=10`);
       setPosts(res.data.items);
       setPagination(res.data.pagination);
     } catch {
-      // 조용히 처리
+      setPostsError('게시글을 불러오지 못했습니다.');
     } finally {
       setLoadingPosts(false);
     }
@@ -184,7 +186,6 @@ export default function MyPage() {
                 width={64}
                 height={64}
                 className="w-16 h-16 rounded-full object-cover border"
-                unoptimized
               />
             ) : (
               <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center border">
@@ -360,6 +361,10 @@ export default function MyPage() {
       {/* 내 게시글 */}
       <section className="space-y-3">
         <h2 className="text-base font-semibold text-gray-700">내 게시글</h2>
+
+        {postsError && (
+          <p className="text-sm text-red-500 py-2">{postsError}</p>
+        )}
 
         {loadingPosts ? (
           <div className="flex justify-center py-8">
