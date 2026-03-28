@@ -74,6 +74,17 @@ class Comment {
     return $stmt->fetch();
   }
 
+  // 댓글 조회 + 작성자 이메일 포함
+  public static function findByIdWithEmail(int $id): array|false {
+    $pdo = Database::getInstance();
+    $stmt = $pdo->prepare(
+      'SELECT c.*, u.name AS author_name, u.email AS author_email FROM comments c
+       JOIN users u ON u.id = c.author_id WHERE c.id = ?'
+    );
+    $stmt->execute([$id]);
+    return $stmt->fetch();
+  }
+
   // 댓글 작성 (parent_id 지정 시 대댓글)
   public static function create(int $postId, int $authorId, string $content, ?int $parentId = null): array {
     $pdo = Database::getInstance();

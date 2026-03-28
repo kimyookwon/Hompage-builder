@@ -6,6 +6,7 @@ use App\Models\Post;
 use App\Models\Comment;
 use App\Models\Notification;
 use App\Middleware\AuthMiddleware;
+use App\Services\EmailService;
 use App\Utils\ResponseHelper;
 
 class CommentController {
@@ -48,6 +49,10 @@ class CommentController {
     try {
       $actorId = (int) $payload->sub;
 
+      // 사이트 URL (이메일 링크용)
+      $siteUrl   = rtrim($_ENV['SITE_URL'] ?? '', '/');
+      $postUrl   = "{$siteUrl}/b/{$boardId}/{$postId}";
+
       if ($parentId !== null && $parent !== null) {
         // 대댓글 — 부모 댓글 작성자에게 알림 (자기 자신 제외)
         $parentAuthorId = (int) $parent['author_id'];
@@ -56,6 +61,17 @@ class CommentController {
             $parentAuthorId, 'reply_to_comment',
             (int) $postId, $boardId, $postTitle, $actorName, (int) $comment['id']
           );
+          // 이메일 알림 (부모 댓글 작성자 이메일 조회)
+          $parentWithEmail = Comment::findByIdWithEmail($parentId);
+          if ($parentWithEmail && !empty($parentWithEmail['author_email'])) {
+            EmailService::sendReplyNotification(
+              $parentWithEmail['author_email'],
+              $parentWithEmail['author_name'],
+              $postTitle, $actorName,
+              mb_substr($content, 0, 200),
+              $postUrl
+            );
+          }
         }
       } else {
         // 최상위 댓글 — 게시글 작성자에게 알림 (자기 자신 제외)
@@ -65,6 +81,16 @@ class CommentController {
             $postAuthorId, 'comment_on_post',
             (int) $postId, $boardId, $postTitle, $actorName, (int) $comment['id']
           );
+          // 이메일 알림 (게시글 작성자 이메일)
+          if (!empty($post['author_email'])) {
+            EmailService::sendCommentNotification(
+              $post['author_email'],
+              $post['author_name'],
+              $postTitle, $actorName,
+              mb_substr($content, 0, 200),
+              $postUrl
+            );
+          }
         }
       }
     } catch (\Throwable) {

@@ -128,11 +128,11 @@ class Post {
     $pdo->prepare('UPDATE posts SET view_count = view_count + 1 WHERE id = ?')->execute([$id]);
   }
 
-  // 단일 게시글 조회
+  // 단일 게시글 조회 (작성자 이메일 포함)
   public static function findById(int $id): array|false {
     $pdo = Database::getInstance();
     $stmt = $pdo->prepare(
-      'SELECT p.*, u.name AS author_name FROM posts p
+      'SELECT p.*, u.name AS author_name, u.email AS author_email FROM posts p
        JOIN users u ON u.id = p.author_id WHERE p.id = ?'
     );
     $stmt->execute([$id]);

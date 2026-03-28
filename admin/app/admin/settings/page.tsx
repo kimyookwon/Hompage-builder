@@ -267,6 +267,27 @@ export default function SettingsPage() {
           <GtmCodeInput value={gtmCode} onChange={setGtmCode} />
         </section>
 
+        {/* 이메일 알림 */}
+        <section className="rounded-lg border p-6 space-y-3">
+          <div>
+            <h2 className="font-semibold">이메일 알림</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              댓글/답글 작성 시 게시글·댓글 작성자에게 이메일 알림을 전송합니다.
+            </p>
+          </div>
+          <div className="rounded-md bg-muted/50 border px-4 py-3 text-sm space-y-1">
+            <p className="font-medium text-foreground">서버 환경변수로 설정합니다</p>
+            <p className="text-muted-foreground text-xs font-mono">
+              MAIL_HOST · MAIL_PORT · MAIL_USERNAME · MAIL_PASSWORD · MAIL_FROM
+            </p>
+            <p className="text-xs text-muted-foreground">
+              <code className="bg-background px-1 py-0.5 rounded">.env.docker</code> 또는{' '}
+              <code className="bg-background px-1 py-0.5 rounded">backend/.env.example</code> 참고.
+              미설정 시 앱 내 알림만 동작합니다.
+            </p>
+          </div>
+        </section>
+
         {/* OAuth 설정 */}
         <section className="rounded-lg border p-6 space-y-4">
           <h2 className="font-semibold">OAuth 설정</h2>
