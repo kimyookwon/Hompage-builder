@@ -26,6 +26,16 @@ RUN docker-php-ext-install \
   bcmath \
   gd
 
+# OPcache 확장 설치
+RUN docker-php-ext-install opcache
+
+# OPcache + FPM pool 설정 복사
+COPY docker/php/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
+COPY docker/php/www.conf /usr/local/etc/php-fpm.d/www.conf
+
+# FPM 슬로 로그 디렉토리
+RUN mkdir -p /var/log/php-fpm
+
 # Composer 설치
 COPY --from=composer:2.7 /usr/bin/composer /usr/bin/composer
 
