@@ -1,8 +1,29 @@
 <?php
 
-// 헬스체크
+// 헬스체크 (DB 연결 상태 포함)
 $router->get('/api/health', function (): void {
-  echo json_encode(['success' => true, 'data' => ['status' => 'ok', 'timestamp' => date('c')]]);
+  $dbStatus = 'error';
+  $dbVersion = null;
+  try {
+    $pdo = \App\Config\Database::getInstance();
+    $row = $pdo->query('SELECT VERSION() AS v')->fetch();
+    $dbStatus = 'ok';
+    $dbVersion = $row['v'] ?? null;
+  } catch (\Throwable $e) {
+    $dbStatus = 'error';
+  }
+  $status = $dbStatus === 'ok' ? 'ok' : 'degraded';
+  http_response_code($status === 'ok' ? 200 : 503);
+  header('Content-Type: application/json');
+  echo json_encode([
+    'success' => $status === 'ok',
+    'data' => [
+      'status'     => $status,
+      'db'         => $dbStatus,
+      'db_version' => $dbVersion,
+      'timestamp'  => date('c'),
+    ],
+  ]);
 });
 
 // ─── 검색 ───────────────────────────────────────────────

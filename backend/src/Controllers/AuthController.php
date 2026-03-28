@@ -7,6 +7,7 @@ use App\Utils\JwtHandler;
 use App\Utils\PasswordHash;
 use App\Utils\ResponseHelper;
 use App\Middleware\AuthMiddleware;
+use App\Middleware\RateLimitMiddleware;
 
 class AuthController {
   // POST /api/auth/register — 자체 회원가입
@@ -59,6 +60,11 @@ class AuthController {
 
   // POST /api/auth/login — 자체 로그인
   public function login(): void {
+    // IP별 로그인 시도 제한: 10분 내 10회
+    $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+    RateLimitMiddleware::check("login_{$ip}", 10, 600);
+    RateLimitMiddleware::hit("login_{$ip}", 600);
+
     $data = json_decode(file_get_contents('php://input'), true);
 
     $email = trim($data['email'] ?? '');
