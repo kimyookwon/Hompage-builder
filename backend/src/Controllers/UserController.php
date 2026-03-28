@@ -2,8 +2,10 @@
 
 namespace App\Controllers;
 
+use App\Config\Database;
 use App\Models\User;
 use App\Middleware\AuthMiddleware;
+use App\Utils\PasswordHash;
 use App\Utils\ResponseHelper;
 
 class UserController {
@@ -79,5 +81,35 @@ class UserController {
 
     User::delete((int) $id);
     ResponseHelper::success(['message' => '회원이 탈퇴 처리되었습니다.']);
+  }
+
+  // PATCH /api/users/{id}/password — 관리자 비밀번호 초기화
+  public function resetPassword(string $id): void {
+    AuthMiddleware::requireAdmin();
+
+    $userId = (int) $id;
+    if ($userId <= 0) ResponseHelper::error('잘못된 사용자 ID입니다.', 400);
+
+    $data = json_decode(file_get_contents('php://input'), true);
+    $newPassword = $data['new_password'] ?? '';
+
+    if (strlen($newPassword) < 8) {
+      ResponseHelper::error('비밀번호는 8자 이상이어야 합니다.', 422);
+    }
+
+    $pdo = Database::getInstance();
+
+    // 사용자 존재 확인
+    $stmt = $pdo->prepare('SELECT id, role FROM users WHERE id = ?');
+    $stmt->execute([$userId]);
+    $target = $stmt->fetch();
+
+    if (!$target) ResponseHelper::error('사용자를 찾을 수 없습니다.', 404);
+
+    $hash = PasswordHash::hash($newPassword);
+    $pdo->prepare('UPDATE users SET password_hash = ?, updated_at = NOW() WHERE id = ?')
+        ->execute([$hash, $userId]);
+
+    ResponseHelper::success(['message' => '비밀번호가 초기화되었습니다.']);
   }
 }

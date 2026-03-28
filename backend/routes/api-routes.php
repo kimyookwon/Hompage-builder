@@ -75,6 +75,7 @@ $router->get('/api/users/{id}', [\App\Controllers\UserController::class, 'show']
 $router->patch('/api/users/{id}/role', [\App\Controllers\UserController::class, 'updateRole']);
 $router->patch('/api/users/{id}/status', [\App\Controllers\UserController::class, 'updateStatus']);
 $router->delete('/api/users/{id}', [\App\Controllers\UserController::class, 'delete']);
+$router->patch('/api/users/{id}/password', [\App\Controllers\UserController::class, 'resetPassword']);
 
 // ─── 게시판 ─────────────────────────────────────────────
 $router->get('/api/boards', [\App\Controllers\BoardController::class, 'list']);
