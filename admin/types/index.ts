@@ -242,6 +242,19 @@ export interface PublicUserProfile {
   recentPosts: PublicProfilePost[];
 }
 
+// 관리자 활동 로그 타입
+export interface AdminLog {
+  id: number;
+  adminId: number;
+  adminName: string;
+  action: string;
+  targetType: string;
+  targetId: number | null;
+  detail: string | null;
+  ip: string;
+  createdAt: string;
+}
+
 // 사이트 공지 타입
 export interface SiteNotice {
   id: number;

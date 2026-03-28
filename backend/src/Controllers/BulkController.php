@@ -4,12 +4,13 @@ namespace App\Controllers;
 
 use App\Config\Database;
 use App\Middleware\AuthMiddleware;
+use App\Utils\AdminLogger;
 use App\Utils\ResponseHelper;
 
 class BulkController {
   // POST /api/admin/posts/bulk — 게시글 일괄 삭제
   public function deletePosts(): void {
-    AuthMiddleware::requireAdmin();
+    $payload = AuthMiddleware::requireAdmin();
 
     $data = json_decode(file_get_contents('php://input'), true);
     $ids  = $data['ids'] ?? [];
@@ -49,6 +50,13 @@ class BulkController {
 
       $pdo->commit();
 
+      AdminLogger::log(
+        (int) $payload->sub,
+        AdminLogger::getAdminName($payload),
+        'bulk_delete', 'post', null,
+        ['ids' => $ids, 'count' => $deletedCount]
+      );
+
       ResponseHelper::success([
         'deleted_count' => $deletedCount,
         'message'       => "{$deletedCount}개 게시글이 삭제되었습니다.",
@@ -61,7 +69,7 @@ class BulkController {
 
   // POST /api/admin/users/bulk — 회원 일괄 상태 변경
   public function updateUsersStatus(): void {
-    AuthMiddleware::requireAdmin();
+    $payload = AuthMiddleware::requireAdmin();
 
     $data   = json_decode(file_get_contents('php://input'), true);
     $ids    = $data['ids'] ?? [];
@@ -98,6 +106,13 @@ class BulkController {
     );
     $stmt->execute(array_merge([$status], $ids));
     $updatedCount = $stmt->rowCount();
+
+    AdminLogger::log(
+      (int) $payload->sub,
+      AdminLogger::getAdminName($payload),
+      'bulk_status', 'user', null,
+      ['status' => $status, 'count' => $updatedCount]
+    );
 
     ResponseHelper::success([
       'updated_count' => $updatedCount,

@@ -12,6 +12,11 @@ use App\Middleware\RateLimitMiddleware;
 class AuthController {
   // POST /api/auth/register — 자체 회원가입
   public function register(): void {
+    // IP당 회원가입: 5회/시간
+    $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+    RateLimitMiddleware::check("register_{$ip}", 5, 3600);
+    RateLimitMiddleware::hit("register_{$ip}", 3600);
+
     $data = json_decode(file_get_contents('php://input'), true);
 
     $email = trim($data['email'] ?? '');
@@ -87,6 +92,9 @@ class AuthController {
     if ($user['status'] === 'blocked') {
       ResponseHelper::error('차단된 계정입니다. 관리자에게 문의해주세요.', 403);
     }
+
+    // 로그인 성공 — Rate Limit 카운트 리셋
+    RateLimitMiddleware::reset("login_{$ip}");
 
     $token = JwtHandler::generate((int) $user['id'], $user['role']);
 

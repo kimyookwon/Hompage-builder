@@ -4,6 +4,8 @@ namespace App\Controllers;
 
 use App\Config\Database;
 use App\Middleware\AuthMiddleware;
+use App\Middleware\RateLimitMiddleware;
+use App\Utils\AdminLogger;
 use App\Utils\ResponseHelper;
 
 class ReportController {
@@ -13,6 +15,11 @@ class ReportController {
   // POST /api/comments/{id}/report — 댓글 신고 접수
   public function create(string $commentId): void {
     $payload = AuthMiddleware::require();
+
+    // 사용자당 신고: 10회/시간
+    RateLimitMiddleware::check(RateLimitMiddleware::userKey('report', (int) $payload->sub), 10, 3600);
+    RateLimitMiddleware::hit(RateLimitMiddleware::userKey('report', (int) $payload->sub), 3600);
+
     $pdo = Database::getInstance();
 
     // 댓글 존재 확인
@@ -89,7 +96,7 @@ class ReportController {
 
   // PATCH /api/admin/reports/{id} — 신고 처리 (관리자)
   public function adminUpdate(string $id): void {
-    AuthMiddleware::requireAdmin();
+    $payload = AuthMiddleware::requireAdmin();
     $pdo = Database::getInstance();
 
     $report = $pdo->prepare('SELECT * FROM reports WHERE id = ?');
@@ -113,6 +120,13 @@ class ReportController {
       $pdo->prepare('UPDATE reports SET status = ? WHERE id = ?')
           ->execute([$status, (int) $id]);
     }
+
+    AdminLogger::log(
+      (int) $payload->sub,
+      AdminLogger::getAdminName($payload),
+      'update_status', 'report', (int) $id,
+      ['status' => $status]
+    );
 
     $stmt = $pdo->prepare('SELECT * FROM reports WHERE id = ?');
     $stmt->execute([(int) $id]);

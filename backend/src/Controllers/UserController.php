@@ -6,6 +6,7 @@ use App\Config\Database;
 use App\Models\User;
 use App\Models\Post;
 use App\Middleware\AuthMiddleware;
+use App\Utils\AdminLogger;
 use App\Utils\PasswordHash;
 use App\Utils\ResponseHelper;
 
@@ -41,7 +42,7 @@ class UserController {
 
   // PATCH /api/users/{id}/role — 역할 변경
   public function updateRole(string $id): void {
-    AuthMiddleware::requireAdmin();
+    $payload = AuthMiddleware::requireAdmin();
 
     $data = json_decode(file_get_contents('php://input'), true);
     $role = $data['role'] ?? '';
@@ -53,12 +54,21 @@ class UserController {
     $user = User::findById((int) $id);
     if (!$user) ResponseHelper::error('회원을 찾을 수 없습니다.', 404);
 
-    ResponseHelper::success(User::updateRole((int) $id, $role));
+    $result = User::updateRole((int) $id, $role);
+
+    AdminLogger::log(
+      (int) $payload->sub,
+      AdminLogger::getAdminName($payload),
+      'update_role', 'user', (int) $id,
+      ['role' => $role]
+    );
+
+    ResponseHelper::success($result);
   }
 
   // PATCH /api/users/{id}/status — 상태 변경
   public function updateStatus(string $id): void {
-    AuthMiddleware::requireAdmin();
+    $payload = AuthMiddleware::requireAdmin();
 
     $data = json_decode(file_get_contents('php://input'), true);
     $status = $data['status'] ?? '';
@@ -70,7 +80,16 @@ class UserController {
     $user = User::findById((int) $id);
     if (!$user) ResponseHelper::error('회원을 찾을 수 없습니다.', 404);
 
-    ResponseHelper::success(User::updateStatus((int) $id, $status));
+    $result = User::updateStatus((int) $id, $status);
+
+    AdminLogger::log(
+      (int) $payload->sub,
+      AdminLogger::getAdminName($payload),
+      'update_status', 'user', (int) $id,
+      ['status' => $status]
+    );
+
+    ResponseHelper::success($result);
   }
 
   // GET /api/users/{id}/profile — 공개 프로필 (인증 불필요)
@@ -132,12 +151,19 @@ class UserController {
 
   // DELETE /api/users/{id} — 강제 탈퇴
   public function delete(string $id): void {
-    AuthMiddleware::requireAdmin();
+    $payload = AuthMiddleware::requireAdmin();
 
     $user = User::findById((int) $id);
     if (!$user) ResponseHelper::error('회원을 찾을 수 없습니다.', 404);
 
     User::delete((int) $id);
+
+    AdminLogger::log(
+      (int) $payload->sub,
+      AdminLogger::getAdminName($payload),
+      'delete', 'user', (int) $id
+    );
+
     ResponseHelper::success(['message' => '회원이 탈퇴 처리되었습니다.']);
   }
 

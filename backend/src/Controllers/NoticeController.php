@@ -4,6 +4,7 @@ namespace App\Controllers;
 
 use App\Config\Database;
 use App\Middleware\AuthMiddleware;
+use App\Utils\AdminLogger;
 use App\Utils\ResponseHelper;
 
 class NoticeController {
@@ -54,7 +55,7 @@ class NoticeController {
 
   // POST /api/admin/notices -- 공지 생성
   public function create(): void {
-    AuthMiddleware::requireAdmin();
+    $payload = AuthMiddleware::requireAdmin();
 
     try {
       $data = json_decode(file_get_contents('php://input'), true);
@@ -81,6 +82,13 @@ class NoticeController {
       $stmt->execute([$title, $content, $type, $startsAt, $endsAt, $sortOrder]);
 
       $id = (int) $pdo->lastInsertId();
+
+      AdminLogger::log(
+        (int) $payload->sub,
+        AdminLogger::getAdminName($payload),
+        'create', 'notice', $id
+      );
+
       $row = $pdo->prepare('SELECT * FROM site_notices WHERE id = ?');
       $row->execute([$id]);
 
@@ -92,7 +100,7 @@ class NoticeController {
 
   // PATCH /api/admin/notices/{id} -- 공지 수정
   public function update(string $id): void {
-    AuthMiddleware::requireAdmin();
+    $payload = AuthMiddleware::requireAdmin();
 
     try {
       $pdo = Database::getInstance();
@@ -148,6 +156,12 @@ class NoticeController {
       $pdo->prepare('UPDATE site_notices SET ' . implode(', ', $fields) . ' WHERE id = ?')
           ->execute($params);
 
+      AdminLogger::log(
+        (int) $payload->sub,
+        AdminLogger::getAdminName($payload),
+        'update', 'notice', (int) $id
+      );
+
       $row = $pdo->prepare('SELECT * FROM site_notices WHERE id = ?');
       $row->execute([(int) $id]);
 
@@ -160,7 +174,7 @@ class NoticeController {
 
   // DELETE /api/admin/notices/{id} -- 공지 삭제
   public function delete(string $id): void {
-    AuthMiddleware::requireAdmin();
+    $payload = AuthMiddleware::requireAdmin();
 
     try {
       $pdo = Database::getInstance();
@@ -171,6 +185,12 @@ class NoticeController {
 
       $pdo->prepare('DELETE FROM site_notices WHERE id = ?')->execute([(int) $id]);
 
+      AdminLogger::log(
+        (int) $payload->sub,
+        AdminLogger::getAdminName($payload),
+        'delete', 'notice', (int) $id
+      );
+
       ResponseHelper::success(['message' => '공지가 삭제되었습니다.']);
     } catch (\Throwable $e) {
       ResponseHelper::error('공지 삭제에 실패했습니다.', 500);
@@ -179,7 +199,7 @@ class NoticeController {
 
   // PATCH /api/admin/notices/{id}/toggle -- 활성/비활성 토글
   public function toggle(string $id): void {
-    AuthMiddleware::requireAdmin();
+    $payload = AuthMiddleware::requireAdmin();
 
     try {
       $pdo = Database::getInstance();
@@ -192,6 +212,12 @@ class NoticeController {
       $newActive = $notice['is_active'] ? 0 : 1;
       $pdo->prepare('UPDATE site_notices SET is_active = ? WHERE id = ?')
           ->execute([$newActive, (int) $id]);
+
+      AdminLogger::log(
+        (int) $payload->sub,
+        AdminLogger::getAdminName($payload),
+        'toggle', 'notice', (int) $id
+      );
 
       $row = $pdo->prepare('SELECT * FROM site_notices WHERE id = ?');
       $row->execute([(int) $id]);

@@ -3,12 +3,18 @@
 namespace App\Controllers;
 
 use App\Config\Database;
+use App\Middleware\RateLimitMiddleware;
 use App\Services\EmailService;
 use App\Utils\ResponseHelper;
 
 class PasswordResetController {
   // POST /api/auth/forgot-password — 재설정 이메일 발송
   public function requestReset(): void {
+    // IP당 비밀번호 재설정: 3회/시간
+    $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+    RateLimitMiddleware::check("pwreset_{$ip}", 3, 3600);
+    RateLimitMiddleware::hit("pwreset_{$ip}", 3600);
+
     $data  = json_decode(file_get_contents('php://input'), true);
     $email = trim($data['email'] ?? '');
 

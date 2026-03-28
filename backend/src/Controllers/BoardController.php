@@ -4,6 +4,7 @@ namespace App\Controllers;
 
 use App\Models\Board;
 use App\Middleware\AuthMiddleware;
+use App\Utils\AdminLogger;
 use App\Utils\ResponseHelper;
 
 class BoardController {
@@ -31,7 +32,7 @@ class BoardController {
 
   // POST /api/boards — 게시판 생성
   public function create(): void {
-    AuthMiddleware::requireAdmin();
+    $payload = AuthMiddleware::requireAdmin();
 
     $data = json_decode(file_get_contents('php://input'), true);
     $name = trim($data['name'] ?? '');
@@ -45,18 +46,34 @@ class BoardController {
     if (!in_array($readPermission, ['admin_only', 'user', 'public'])) ResponseHelper::error('유효하지 않은 읽기 권한입니다.', 422);
     if (!in_array($writePermission, ['admin_only', 'user'])) ResponseHelper::error('유효하지 않은 쓰기 권한입니다.', 422);
 
-    ResponseHelper::success(Board::create($name, $type, $readPermission, $writePermission, $description ?: null), 201);
+    $board = Board::create($name, $type, $readPermission, $writePermission, $description ?: null);
+
+    AdminLogger::log(
+      (int) $payload->sub,
+      AdminLogger::getAdminName($payload),
+      'create', 'board', (int) $board['id']
+    );
+
+    ResponseHelper::success($board, 201);
   }
 
   // PATCH /api/boards/{id} — 게시판 수정
   public function update(string $id): void {
-    AuthMiddleware::requireAdmin();
+    $payload = AuthMiddleware::requireAdmin();
 
     $board = Board::findById((int) $id);
     if (!$board) ResponseHelper::error('게시판을 찾을 수 없습니다.', 404);
 
     $data = json_decode(file_get_contents('php://input'), true);
-    ResponseHelper::success(Board::update((int) $id, $data));
+    $result = Board::update((int) $id, $data);
+
+    AdminLogger::log(
+      (int) $payload->sub,
+      AdminLogger::getAdminName($payload),
+      'update', 'board', (int) $id
+    );
+
+    ResponseHelper::success($result);
   }
 
   // PATCH /api/boards/{id}/move — 순서 이동 (up/down)
@@ -78,12 +95,19 @@ class BoardController {
 
   // DELETE /api/boards/{id} — 게시판 삭제
   public function delete(string $id): void {
-    AuthMiddleware::requireAdmin();
+    $payload = AuthMiddleware::requireAdmin();
 
     $board = Board::findById((int) $id);
     if (!$board) ResponseHelper::error('게시판을 찾을 수 없습니다.', 404);
 
     Board::delete((int) $id);
+
+    AdminLogger::log(
+      (int) $payload->sub,
+      AdminLogger::getAdminName($payload),
+      'delete', 'board', (int) $id
+    );
+
     ResponseHelper::success(['message' => '게시판이 삭제되었습니다.']);
   }
 }

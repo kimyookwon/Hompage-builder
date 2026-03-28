@@ -154,6 +154,9 @@ $router->patch('/api/admin/notices/{id}', [\App\Controllers\NoticeController::cl
 $router->delete('/api/admin/notices/{id}', [\App\Controllers\NoticeController::class, 'delete']);
 $router->patch('/api/admin/notices/{id}/toggle', [\App\Controllers\NoticeController::class, 'toggle']);
 
+// ─── 관리자 활동 로그 ────────────────────────────────────
+$router->get('/api/admin/logs', [\App\Controllers\AdminLogController::class, 'list']);
+
 // ─── 통계 ───────────────────────────────────────────────
 $router->get('/api/admin/stats', [\App\Controllers\StatsController::class, 'index']);
 

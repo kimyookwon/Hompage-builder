@@ -6,6 +6,7 @@ use App\Models\Post;
 use App\Models\Comment;
 use App\Models\Notification;
 use App\Middleware\AuthMiddleware;
+use App\Middleware\RateLimitMiddleware;
 use App\Services\EmailService;
 use App\Utils\PointHelper;
 use App\Utils\ResponseHelper;
@@ -20,6 +21,10 @@ class CommentController {
   // POST /api/posts/{id}/comments — 댓글 작성 (로그인 필요)
   public function create(string $postId): void {
     $payload = AuthMiddleware::require();
+
+    // 사용자당 댓글 작성: 30회/시간
+    RateLimitMiddleware::check(RateLimitMiddleware::userKey('comment_create', (int) $payload->sub), 30, 3600);
+    RateLimitMiddleware::hit(RateLimitMiddleware::userKey('comment_create', (int) $payload->sub), 3600);
 
     $post = Post::findById((int) $postId);
     if (!$post) ResponseHelper::error('게시글을 찾을 수 없습니다.', 404);

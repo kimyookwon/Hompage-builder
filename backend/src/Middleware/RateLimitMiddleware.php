@@ -15,13 +15,48 @@ class RateLimitMiddleware {
 
     // 윈도우가 만료되었으면 초기화
     if ($data['reset_at'] <= $now) {
+      // 새 윈도우 — 헤더만 전송
+      header('X-RateLimit-Limit: ' . $maxAttempts);
+      header('X-RateLimit-Remaining: ' . $maxAttempts);
+      header('X-RateLimit-Reset: ' . ($now + $windowSeconds));
       return;
     }
+
+    // Rate Limit 헤더 전송
+    $remaining = max(0, $maxAttempts - $data['count']);
+    header('X-RateLimit-Limit: ' . $maxAttempts);
+    header('X-RateLimit-Remaining: ' . $remaining);
+    header('X-RateLimit-Reset: ' . $data['reset_at']);
 
     // 최대 시도 횟수 초과 확인
     if ($data['count'] >= $maxAttempts) {
       ResponseHelper::error('요청이 너무 많습니다. 잠시 후 다시 시도해주세요.', 429);
     }
+  }
+
+  // 남은 시도 횟수 반환 (응답 헤더용)
+  public static function remaining(string $key, int $maxAttempts): int {
+    $data = self::load($key);
+    $now = time();
+
+    if ($data['reset_at'] <= $now) {
+      return $maxAttempts;
+    }
+
+    return max(0, $maxAttempts - $data['count']);
+  }
+
+  // 특정 키 초기화 (로그인 성공 시 카운트 리셋)
+  public static function reset(string $key): void {
+    $filePath = self::filePath($key);
+    if (file_exists($filePath)) {
+      @unlink($filePath);
+    }
+  }
+
+  // 사용자 ID 기반 키 생성 헬퍼
+  public static function userKey(string $action, int $userId): string {
+    return "user_{$action}_{$userId}";
   }
 
   // 카운트 증가 (성공/실패 관계없이 호출)

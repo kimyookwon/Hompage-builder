@@ -8,6 +8,8 @@ use App\Models\Post;
 use App\Models\PostAttachment;
 use App\Models\Tag;
 use App\Middleware\AuthMiddleware;
+use App\Middleware\RateLimitMiddleware;
+use App\Utils\AdminLogger;
 use App\Utils\PointHelper;
 use App\Utils\ResponseHelper;
 
@@ -131,6 +133,10 @@ class PostController {
   public function create(string $boardId): void {
     $payload = AuthMiddleware::require();
 
+    // 사용자당 게시글 작성: 10회/시간
+    RateLimitMiddleware::check(RateLimitMiddleware::userKey('post_create', (int) $payload->sub), 10, 3600);
+    RateLimitMiddleware::hit(RateLimitMiddleware::userKey('post_create', (int) $payload->sub), 3600);
+
     $board = Board::findById((int) $boardId);
     if (!$board) ResponseHelper::error('게시판을 찾을 수 없습니다.', 404);
 
@@ -225,7 +231,15 @@ class PostController {
     $post = Post::findById((int) $id);
     if (!$post) ResponseHelper::error('게시글을 찾을 수 없습니다.', 404);
 
-    ResponseHelper::success(Post::toggleNotice((int) $id));
+    $result = Post::toggleNotice((int) $id);
+
+    AdminLogger::log(
+      (int) $payload->sub,
+      AdminLogger::getAdminName($payload),
+      'toggle_notice', 'post', (int) $id
+    );
+
+    ResponseHelper::success($result);
   }
 
   // DELETE /api/posts/{id} — 게시글 삭제
@@ -241,6 +255,16 @@ class PostController {
     }
 
     Post::delete((int) $id);
+
+    // 관리자가 삭제한 경우 로그 기록
+    if ($payload->role === 'admin') {
+      AdminLogger::log(
+        (int) $payload->sub,
+        AdminLogger::getAdminName($payload),
+        'delete', 'post', (int) $id
+      );
+    }
+
     ResponseHelper::success(['message' => '게시글이 삭제되었습니다.']);
   }
 
