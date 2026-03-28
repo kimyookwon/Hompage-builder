@@ -41,6 +41,12 @@ $router->get('/api/auth/reset-password/verify', [\App\Controllers\PasswordResetC
 $router->get('/api/auth/oauth/{provider}/redirect', [\App\Controllers\OAuthController::class, 'redirect']);
 $router->post('/api/auth/oauth/{provider}/callback', [\App\Controllers\OAuthController::class, 'callback']);
 
+// ─── 2FA (TOTP) ────────────────────────────────────────────
+$router->post('/api/auth/2fa/setup', [\App\Controllers\TwoFactorController::class, 'setup']);
+$router->post('/api/auth/2fa/confirm', [\App\Controllers\TwoFactorController::class, 'confirm']);
+$router->delete('/api/auth/2fa', [\App\Controllers\TwoFactorController::class, 'disable']);
+$router->post('/api/auth/2fa/login', [\App\Controllers\TwoFactorController::class, 'login']);
+
 // ─── 페이지 ─────────────────────────────────────────────
 $router->get('/api/pages', [\App\Controllers\PageController::class, 'list']);
 $router->post('/api/pages', [\App\Controllers\PageController::class, 'create']);

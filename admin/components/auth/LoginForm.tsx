@@ -11,6 +11,12 @@ import { api } from '@/lib/api';
 import { User } from '@/types';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { TwoFactorLogin } from '@/components/auth/TwoFactorLogin';
+
+// 1차 로그인 응답 타입 (2FA 분기 포함)
+type LoginResponse =
+  | { token: string; user: User; requires_2fa?: false }
+  | { requires_2fa: true; temp_token: string };
 
 const loginSchema = z.object({
   email: z.string().email('유효한 이메일을 입력해주세요.'),
@@ -23,6 +29,8 @@ export function LoginForm() {
   const { setAuth } = useAuth();
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
+  // 2FA가 필요한 경우 임시 토큰 보관
+  const [tempToken, setTempToken] = useState<string | null>(null);
 
   const {
     register,
@@ -32,19 +40,38 @@ export function LoginForm() {
     resolver: zodResolver(loginSchema),
   });
 
+  // 로그인 완료 후 리디렉션 처리 (2FA 성공 콜백에서도 재사용)
+  const handleAuthComplete = (user: User, token: string) => {
+    setAuth(user, token);
+    const redirectTo = sessionStorage.getItem('redirect_after_login');
+    sessionStorage.removeItem('redirect_after_login');
+    router.replace(redirectTo ?? (user.role === 'admin' ? '/admin' : '/'));
+  };
+
   const onSubmit = async (values: LoginFormValues) => {
     setServerError(null);
     try {
-      const res = await api.post<{ token: string; user: User }>('/auth/login', values);
-      setAuth(res.data.user, res.data.token);
-      // 로그인 전 이동 요청 URL이 있으면 그곳으로, 없으면 역할별 기본 경로
-      const redirectTo = sessionStorage.getItem('redirect_after_login');
-      sessionStorage.removeItem('redirect_after_login');
-      router.replace(redirectTo ?? (res.data.user.role === 'admin' ? '/admin' : '/'));
+      const res = await api.post<LoginResponse>('/auth/login', values);
+      // 2FA 활성화 사용자 — 2FA 입력 단계로 전환
+      if (res.data.requires_2fa) {
+        setTempToken(res.data.temp_token);
+        return;
+      }
+      handleAuthComplete(res.data.user, res.data.token);
     } catch (err) {
       setServerError(err instanceof Error ? err.message : '로그인에 실패했습니다.');
     }
   };
+
+  // 2FA 입력 단계 렌더링
+  if (tempToken) {
+    return (
+      <TwoFactorLogin
+        tempToken={tempToken}
+        onSuccess={(token, user) => handleAuthComplete(user, token)}
+      />
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">

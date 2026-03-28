@@ -80,7 +80,7 @@ class AuthController {
     }
 
     $pdo = Database::getInstance();
-    $stmt = $pdo->prepare('SELECT id, email, name, role, password_hash, status FROM users WHERE email = ?');
+    $stmt = $pdo->prepare('SELECT id, email, name, role, password_hash, status, totp_enabled FROM users WHERE email = ?');
     $stmt->execute([$email]);
     $user = $stmt->fetch();
 
@@ -95,6 +95,20 @@ class AuthController {
 
     // 로그인 성공 — Rate Limit 카운트 리셋
     RateLimitMiddleware::reset("login_{$ip}");
+
+    // 2FA 활성화 사용자: 임시 토큰 발급 후 2차 인증 요구
+    if (!empty($user['totp_enabled'])) {
+      $tempToken = JwtHandler::generateCustom([
+        'sub' => (int) $user['id'],
+        'type' => '2fa_pending',
+      ], 300); // 5분 유효
+
+      ResponseHelper::success([
+        'requires_2fa' => true,
+        'temp_token' => $tempToken,
+      ]);
+      return;
+    }
 
     $token = JwtHandler::generate((int) $user['id'], $user['role']);
 

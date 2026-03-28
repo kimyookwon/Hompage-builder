@@ -25,6 +25,19 @@ class JwtHandler {
     return JWT::encode($payload, $secret, self::$algorithm);
   }
 
+  // 커스텀 페이로드로 JWT 생성 (2FA 임시 토큰 등)
+  public static function generateCustom(array $claims, int $expiry = 300): string {
+    $secret = $_ENV['JWT_SECRET'] ?? 'default-secret';
+
+    $payload = array_merge([
+      'iss' => $_ENV['APP_URL'] ?? 'http://localhost',
+      'iat' => time(),
+      'exp' => time() + $expiry,
+    ], $claims);
+
+    return JWT::encode($payload, $secret, self::$algorithm);
+  }
+
   // JWT 토큰 검증 및 페이로드 반환
   public static function verify(string $token): object {
     $secret = $_ENV['JWT_SECRET'] ?? 'default-secret';

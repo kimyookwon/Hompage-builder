@@ -12,6 +12,7 @@ export interface User {
   oauthProvider?: 'google' | 'kakao' | 'naver';
   points?: number;
   level?: number;
+  totpEnabled?: boolean;
   createdAt: string;
   updatedAt: string;
 }

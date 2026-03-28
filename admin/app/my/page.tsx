@@ -10,6 +10,7 @@ import { User, Post, Pagination as PaginationData, BookmarkedPost, PointLog, Poi
 import PaginationUI from '@/components/common/Pagination';
 import { formatDate } from '@/lib/date';
 import { LevelBadge } from '@/components/common/LevelBadge';
+import { TwoFactorSetup } from '@/components/auth/TwoFactorSetup';
 
 interface MediaAsset { id: number; file_url: string; }
 
@@ -47,6 +48,13 @@ export default function MyPage() {
 
   const [withdrawing, setWithdrawing] = useState(false);
   const [showWithdrawConfirm, setShowWithdrawConfirm] = useState(false);
+
+  // 2FA 관련 상태
+  const [showTotpSetup, setShowTotpSetup] = useState(false);
+  const [disablingTotp, setDisablingTotp] = useState(false);
+  const [showTotpDisableForm, setShowTotpDisableForm] = useState(false);
+  const [totpDisablePassword, setTotpDisablePassword] = useState('');
+  const [totpDisableError, setTotpDisableError] = useState('');
 
   // 아바타
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -95,6 +103,40 @@ export default function MyPage() {
     } finally {
       setWithdrawing(false);
       setShowWithdrawConfirm(false);
+    }
+  };
+
+  // 2FA 설정 완료 시 사용자 상태 갱신
+  const handleTotpSetupSuccess = async () => {
+    try {
+      const res = await api.get<User>('/me');
+      setAuth(res.data, localStorage.getItem('auth_token') ?? '');
+    } catch {
+      // 갱신 실패 시 페이지 리로드로 폴백
+      window.location.reload();
+    } finally {
+      setShowTotpSetup(false);
+    }
+  };
+
+  // 2FA 비활성화
+  const handleTotpDisable = async () => {
+    if (!totpDisablePassword) {
+      setTotpDisableError('비밀번호를 입력해주세요.');
+      return;
+    }
+    setDisablingTotp(true);
+    setTotpDisableError('');
+    try {
+      await api.delete('/auth/2fa', { password: totpDisablePassword });
+      const res = await api.get<User>('/me');
+      setAuth(res.data, localStorage.getItem('auth_token') ?? '');
+      setShowTotpDisableForm(false);
+      setTotpDisablePassword('');
+    } catch (e) {
+      setTotpDisableError(e instanceof Error ? e.message : '비활성화에 실패했습니다.');
+    } finally {
+      setDisablingTotp(false);
     }
   };
 
@@ -398,6 +440,80 @@ export default function MyPage() {
           </form>
         </section>
       )}
+
+      {/* 이중 인증 (2FA) 설정 */}
+      <section className="border rounded-xl p-6 space-y-4">
+        <h2 className="text-base font-semibold text-gray-700">이중 인증 (2FA)</h2>
+        {user.totpEnabled ? (
+          <div className="space-y-3">
+            <p className="text-sm text-green-700 flex items-center gap-1.5">
+              <span>✅</span>
+              <span>2FA가 활성화되어 있습니다. 로그인 시 인증 코드가 필요합니다.</span>
+            </p>
+            {!showTotpDisableForm ? (
+              <button
+                onClick={() => setShowTotpDisableForm(true)}
+                className="px-4 py-2 border border-gray-300 text-gray-600 text-xs rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                2FA 비활성화
+              </button>
+            ) : (
+              <div className="space-y-3 border rounded-lg p-4 bg-gray-50">
+                <p className="text-xs text-gray-600">비활성화하려면 현재 비밀번호를 입력하세요.</p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="password"
+                    placeholder="현재 비밀번호"
+                    value={totpDisablePassword}
+                    onChange={(e) => setTotpDisablePassword(e.target.value)}
+                    className="flex-1 border rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    onClick={handleTotpDisable}
+                    disabled={disablingTotp}
+                    className="px-4 py-1.5 bg-red-600 text-white text-xs rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+                  >
+                    {disablingTotp ? '처리 중...' : '비활성화'}
+                  </button>
+                  <button
+                    onClick={() => { setShowTotpDisableForm(false); setTotpDisablePassword(''); setTotpDisableError(''); }}
+                    className="px-3 py-1.5 border text-xs rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
+                  >
+                    취소
+                  </button>
+                </div>
+                {totpDisableError && (
+                  <p className="text-xs text-red-600">{totpDisableError}</p>
+                )}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-sm text-gray-500">
+              로그인 시 추가 인증 코드를 요구하여 계정 보안을 강화합니다.
+            </p>
+            {!showTotpSetup ? (
+              <button
+                onClick={() => setShowTotpSetup(true)}
+                className="px-4 py-2 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                2FA 활성화
+              </button>
+            ) : (
+              <div className="space-y-3">
+                <TwoFactorSetup onSuccess={handleTotpSetupSuccess} />
+                <button
+                  onClick={() => setShowTotpSetup(false)}
+                  className="text-xs text-gray-500 hover:text-gray-700 underline"
+                >
+                  취소
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
 
       {/* 회원 탈퇴 */}
       <section className="border border-red-100 rounded-xl p-6 space-y-3">
