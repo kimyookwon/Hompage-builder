@@ -36,7 +36,10 @@ admin/tests/.auth/
 admin/test-results/
 
 # Claude Code 로컬 설정
-.claude/settings.local.json
+.claude/
+
+# Playwright 리포트
+admin/playwright-report/
 
 # 민감한 메모 파일
 *.txt
